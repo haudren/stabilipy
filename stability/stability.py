@@ -1,6 +1,6 @@
 import numpy as np
 from cvxopt import matrix, solvers
-from polyhedron import Hrep, Vrep
+import cdd
 import shapely.geometry as geom
 
 import matplotlib.pyplot as plt
@@ -23,11 +23,12 @@ def area(hrep):
                        for ((x0, y0), (x1, y1)) in segments(points)))
 
 def area_convex(hrep):
+  gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
-  if hrep.generators.size < 6:
+  if gen.shape[0] < 3:
     return 0
-  p = np.vstack([hrep.generators, hrep.generators[0, :]])
-  x, y = p[:, 0], p[:, 1]
+  p = np.vstack([gen, gen[0, :]])
+  x, y = p[:, 1], p[:, 2]
   poly = geom.Polygon(zip(x, y))
   return poly.convex_hull.area
 
@@ -141,7 +142,7 @@ class StabilityPolygon():
     H = []
     for i, (b, u) in enumerate(zip(B_s, u_s)):
       block = np.hstack([-np.vstack([u.T, b]),
-                         np.zeros((4, 2))])
+                        np.zeros((4, 2))])
       g = np.hstack([np.zeros((4, 3*i)),
                      block,
                      np.zeros((4, 3*(len(B_s)-1-i)))])
@@ -172,36 +173,42 @@ class StabilityPolygon():
       self.points.append(self.com)
       self.offsets.append(d.T.dot(self.com))
     else:
-      raise Exception("Failed to init in direction {}".format(d))
+      raise Exception("Failed to step in direction {}".format(d))
 
   def build_polys(self):
     if self.outer is None:
       A = np.vstack(self.directions)
       b = np.vstack(self.offsets)
-      self.outer = Hrep(A, b)
+      self.outer = cdd.Matrix(np.hstack([b, -A]))
+      self.outer.rep_type = cdd.RepType.INEQUALITY
     else:
-      A_e = np.vstack((self.outer.A, self.directions[-1]))
-      b = self.outer.b.reshape((self.outer.b.shape[0], 1))
-      b_e = np.vstack((b, self.offsets[-1]))
-      self.outer = Hrep(A_e, b_e)
+      self.outer.extend(np.hstack((self.offsets[-1], -self.directions[-1])))
+      self.outer.canonicalize()
 
     if self.inner is None:
-      self.inner = Vrep(np.vstack([p.T for p in self.points]))
+      A = np.vstack([p.T for p in self.points])
+      b = np.ones((len(self.points), 1))
+      self.inner = cdd.Matrix(np.hstack((b, A)))
+      self.inner.rep_type = cdd.RepType.GENERATOR
     else:
-      self.inner = Vrep(np.vstack([self.inner.generators, self.points[-1].T]))
+      self.inner.extend(np.hstack(([[1]], self.points[-1].T)))
+      self.inner.canonicalize()
 
   def find_direction(self):
     self.build_polys()
-    areas = []
+    out_area = area_convex(self.outer)
 
-    for line, off in zip(self.inner.A, self.inner.b):
-      A_e = np.vstack((self.outer.A, -line))
-      b = self.outer.b.reshape(self.outer.b.shape[0], 1)
-      b_e = np.vstack((b, -np.array([[off]])))
-      areas.append(area_convex(Hrep(A_e, b_e)))
+    areas = []
+    ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
+
+    for line in ineq:
+      A_e = self.outer.copy()
+      A_e.extend(cdd.Matrix(line.reshape(1, line.size)))
+      A_e.canonicalize()
+      areas.append(out_area - area_convex(A_e))
 
     i, a = max(enumerate(areas), key=lambda x: x[1])
-    return self.inner.A[i, :]
+    return -ineq[i, 1:]
 
   def next_edge(self, plot=False, record=False, number=0):
     d = normalize(self.find_direction().reshape((2, 1)))
@@ -241,11 +248,7 @@ class StabilityPolygon():
     nrSteps = 0
     while(error > epsilon):
       print error
-      try:
-        self.next_edge(plot_step, record_anim, nrSteps)
-      except:
-        print "Unable to finish due to numerical exception"
-        break
+      self.next_edge(plot_step, record_anim, nrSteps)
       error = area_convex(self.outer) - area_convex(self.inner)
       nrSteps += 1
 
@@ -256,11 +259,12 @@ class StabilityPolygon():
       self.show()
 
   def polygon(self, centroid=None):
-    p = np.vstack([self.inner.generators, self.inner.generators[0, :]])
+    gen = np.array(cdd.Polyhedron(self.inner).get_generators())
+    p = np.vstack([gen, gen[0, :]])
     if centroid is None:
-      x, y = p[:, 0], p[:, 1]
+      x, y = p[:, 1], p[:, 2]
     else:
-      x, y = p[:, 0] + centroid.item(0), p[:, 1] + centroid.item(1)
+      x, y = p[:, 1] + centroid.item(0), p[:, 2] + centroid.item(1)
     return geom.Polygon(zip(x, y))
 
   def plot(self):
@@ -310,8 +314,9 @@ class StabilityPolygon():
     self.plot_polygon(self.outer, 'o')
 
   def plot_polygon(self, poly, m):
-    p = np.vstack([poly.generators, poly.generators[0, :]])
-    x, y = p[:, 0], p[:, 1]
+    gen = np.array(cdd.Polyhedron(poly).get_generators())
+    p = np.vstack([gen, gen[0, :]])
+    x, y = p[:, 1], p[:, 2]
     poly = geom.Polygon(zip(x, y))
     x, y = poly.convex_hull.exterior.xy
     self.ax.plot(x, y, marker=m)
