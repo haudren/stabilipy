@@ -226,7 +226,6 @@ class StabilityPolygon():
 
     nrSteps = 0
     while(error > epsilon):
-      print error
       self.next_edge(plot_step, record_anim, nrSteps)
       error = area_convex(self.outer) - area_convex(self.inner)
       nrSteps += 1
