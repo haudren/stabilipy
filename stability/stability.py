@@ -60,6 +60,16 @@ class Contact():
     self.r = pos
     self.mu = mu
 
+  def check_size(self):
+    assert self.n.shape == (3, 1),\
+        "Normal is {} shape instead of (3,1))".format(self.n.shape)
+    assert self.r.shape == (3, 1),\
+        "Position is {} shape instead of (3,1))".format(self.r.shape)
+
+  def __str__(self):
+    lines = ["Contact at :", str(self.r.T), "With normal :", str(self.n.T)]
+    return "\n".join(lines)
+
 #Algorithm to compute stability polygon according to
 #Bretl et al. "Testing static equilibrium of legged robots"
 # You need to first set some contacts and a robot mass
@@ -230,7 +240,12 @@ class StabilityPolygon():
 
     nrSteps = 0
     while(error > epsilon):
-      self.next_edge(plot_step, record_anim, nrSteps)
+      print error
+      try:
+        self.next_edge(plot_step, record_anim, nrSteps)
+      except:
+        print "Unable to finish due to numerical exception"
+        break
       error = area_convex(self.outer) - area_convex(self.inner)
       nrSteps += 1
 
@@ -239,6 +254,14 @@ class StabilityPolygon():
     if plot_final:
       self.plot()
       self.show()
+
+  def polygon(self, centroid=None):
+    p = np.vstack([self.inner.generators, self.inner.generators[0, :]])
+    if centroid is None:
+      x, y = p[:, 0], p[:, 1]
+    else:
+      x, y = p[:, 0] + centroid.item(0), p[:, 1] + centroid.item(1)
+    return geom.Polygon(zip(x, y))
 
   def plot(self):
     fig = plt.figure()
