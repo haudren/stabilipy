@@ -243,9 +243,9 @@ class StabilityPolygon():
   def plot(self):
     fig = plt.figure()
     self.ax = fig.add_subplot('111', aspect='equal', projection='3d')
-    self.ax.set_xlim([-1, 3])
-    self.ax.set_ylim([-1, 3])
-    self.ax.set_zlim([-1, 3])
+    self.ax.set_xlim([-0.5, 1])
+    self.ax.set_ylim([-0.5, 1])
+    self.ax.set_zlim([-0.5, 1])
 
     self.plot_contacts()
     self.plot_solution()
