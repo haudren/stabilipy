@@ -206,6 +206,10 @@ class StabilityPolygon():
         plt.savefig(filename)
         plt.close()
 
+  def iterBound(self, nr_edges_init, error_init, prec):
+    c = float(343)/float(243)
+    return nr_edges_init*(np.sqrt(c*error_init/prec) - 1)
+
   def compute(self, epsilon=1e-4, plot_init=False,
               plot_step=False,
               record_anim=False,
@@ -219,6 +223,11 @@ class StabilityPolygon():
       self.show()
 
     error = area_convex(self.outer) - area_convex(self.inner)
+
+    iterBound = self.iterBound(3, error, epsilon)
+
+    print "This should take {} iterations".format(np.ceil(iterBound))
+
     nrSteps = 0
     while(error > epsilon):
       self.next_edge(plot_step, record_anim, nrSteps)
