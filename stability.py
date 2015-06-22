@@ -193,16 +193,22 @@ class StabilityPolygon():
     i, a = max(enumerate(areas), key=lambda x: x[1])
     return self.inner.A[i, :]
 
-  def next_edge(self, plot=False):
+  def next_edge(self, plot=False, record=False, number=0):
     d = normalize(self.find_direction().reshape((2, 1)))
     self.step(d)
 
-    if plot:
+    if plot or record:
       self.plot()
-      self.show()
+      if plot:
+        self.show()
+      if record:
+        filename = "stability_{0:04d}".format(number)
+        plt.savefig(filename)
+        plt.close()
 
   def compute(self, epsilon=1e-4, plot_init=False,
               plot_step=False,
+              record_anim=False,
               plot_final=True):
     self.make_problem()
     self.init_algo()
@@ -215,9 +221,8 @@ class StabilityPolygon():
     error = area_convex(self.outer) - area_convex(self.inner)
     nrSteps = 0
     while(error > epsilon):
-      self.next_edge(plot_step)
+      self.next_edge(plot_step, record_anim, nrSteps)
       error = area_convex(self.outer) - area_convex(self.inner)
-      print error
       nrSteps += 1
 
     print "NrIter : {} | Remainder : {}".format(nrSteps, error)
