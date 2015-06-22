@@ -55,3 +55,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+#Images output when recording animation
+stability/*.png
