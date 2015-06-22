@@ -14,14 +14,6 @@ def cross_m(vec):
 def normalize(vec):
   return vec/(np.linalg.norm(vec))
 
-def segments(p):
-      return zip(p, p[1:] + [p[0]])
-
-def area(hrep):
-  points = [(p.item(0), p.item(1)) for p in hrep.generators]
-  return 0.5 * abs(sum(x0*y1 - x1*y0
-                       for ((x0, y0), (x1, y1)) in segments(points)))
-
 def area_convex(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
@@ -36,19 +28,6 @@ def convex_hull(x_p, y_p):
   poly = geom.Polygon(zip(x_p, y_p))
   x_c, y_c = poly.convex_hull.exterior.xy
   return x_c, y_c
-
-def convexify(points):
-  A = np.hstack(points)
-  x_p, y_p = A[0, :], A[1, :]
-  x_c, y_c = convex_hull(x_p, y_p)
-  p_c = [np.array([[x], [y]]) for x, y in zip(x_c, y_c)]
-  return p_c
-
-def convexify_h(hrep):
-  A = hrep.generators
-  x_p, y_p = A[:, 0], A[:, 1]
-  x_c, y_c = convex_hull(x_p, y_p)
-  return Vrep(np.vstack([x_c, y_c]).T)
 
 #A contact should contain :
 # - r : position world
