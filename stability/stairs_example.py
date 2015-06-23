@@ -24,3 +24,6 @@ def main():
 
   poly.compute(1e-2, True, False, False, True)
   return poly
+
+if __name__ == '__main__':
+  main()
