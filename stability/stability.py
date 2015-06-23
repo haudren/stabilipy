@@ -114,7 +114,7 @@ class StabilityPolygon():
     assert(self.t.shape == (6, 1))
 
   def solve(self, a):
-    self.sol = self.socp(a, self.A1, self.A2, self.t, self.B_s, self.u_s)
+    self.sol = self.block_socp(a, self.A1, self.A2, self.t, self.B_s, self.u_s)
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
       self.com = vec[-2:]
@@ -126,9 +126,12 @@ class StabilityPolygon():
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
         'l': 0,  # No pure inequality constraints
-        'q': [4]*len(self.contacts),  # Size of the 2nd order cones : x,y,z+1
+        'q': [3]+[4]*len(self.contacts),  # Size of the 2nd order cones : x,y,z+1
         's': []  # No sd cones
         }
+
+    size_cones = self.size_x()*4 // 3
+
     #Max a^T z ~ min -a^T z
     c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
 
@@ -138,9 +141,18 @@ class StabilityPolygon():
     blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]
     block = block_diag(*blocks)
 
-    g = np.hstack([block, np.zeros((self.size_x()*4 // 3, self.size_z()))])
+    g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()))])
 
-    h = np.zeros((self.size_x()*4 // 3, 1))
+    #This com cone should prevent com from going to infinity : ||com|| =< max
+    size_com_cone = self.size_z()+1
+    com_cone = np.zeros((self.size_z()+1, self.nrVars()))
+    com_cone[1, -2] = -1.0  # com_x
+    com_cone[2, -1] = -1.0  # com_y
+
+    g = np.vstack([com_cone, g_contacts])
+
+    h = np.zeros((size_com_cone+size_cones, 1))
+    h[0, 0] = 2.0
 
     sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
                          A=A, b=matrix(t), dims=dims)
