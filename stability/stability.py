@@ -113,7 +113,7 @@ class StabilityPolygon():
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
       self.com = vec[-2:]
-      self.forces = vec[:-2].reshape((3, len(self.contacts))).T
+      self.forces = vec[:-2].reshape((len(self.contacts), 3)).T
       return True
     return False
 
