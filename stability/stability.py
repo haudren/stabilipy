@@ -124,22 +124,26 @@ class StabilityPolygon():
 
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
+    dims = {
+        'l': 0,  # No pure inequality constraints
+        'q': [4]*len(self.contacts),  # Size of the 2nd order cones : x,y,z+1
+        's': []  # No sd cones
+        }
     #Max a^T z ~ min -a^T z
     c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
 
     A = matrix(np.hstack([A1, A2]))
 
-    #B = diag{b_i}, u = [u1.T ... un.T].T
-    diag = block_diag(*B_s)
-    u = np.vstack(u_s)
+    #B = diag{[u_i b_i.T].T}
+    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]
+    block = block_diag(*blocks)
 
-    block = -np.vstack([u.T, diag])
-    g = np.hstack([block, np.zeros((self.size_x()+1, self.size_z()))])
+    g = np.hstack([block, np.zeros((self.size_x()*4 // 3, self.size_z()))])
 
-    h = np.zeros((self.size_x() + 1, 1))
+    h = np.zeros((self.size_x()*4 // 3, 1))
 
-    sol = solvers.socp(c, Gq=[matrix(g)], hq=[matrix(h)],
-                       A=A, b=matrix(t))
+    sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
+                         A=A, b=matrix(t), dims=dims)
     return sol
 
   def socp(self, a, A1, A2, t, B_s, u_s):
