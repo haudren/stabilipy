@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def cross_m(vec):
-  return np.array([[-0, -vec.item(2), vec.item(1)],
+  return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
                    [-vec.item(1), vec.item(0), 0]])
 
