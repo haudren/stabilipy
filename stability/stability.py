@@ -50,6 +50,13 @@ class Contact():
     lines = ["Contact at :", str(self.r.T), "With normal :", str(self.n.T)]
     return "\n".join(lines)
 
+class SteppingException(Exception):
+  def __init__(self, m):
+    self.message = m
+
+  def __str__(self):
+    return self.message
+
 #Algorithm to compute stability polygon according to
 #Bretl et al. "Testing static equilibrium of legged robots"
 # You need to first set some contacts and a robot mass
@@ -139,11 +146,21 @@ class StabilityPolygon():
     self.offsets = []
     self.inner = None
     self.outer = None
-    #Search in three random directions
+    #Search in three "random" directions
     directions = map(normalize, [np.array([[0, 1]]).T,
                                  np.array([[1, 0]]).T,
                                  np.array([[-1, -1]]).T])
+    rdirs = []
+
     for d in directions:
+      try:
+        self.step(d)
+      except SteppingException as e:
+        rdir = np.random.random((2, 1))
+        print str(e), " Will try in a random direction {}".format(rdir)
+        rdirs.append(rdir)
+
+    for d in rdirs:
       self.step(d)
 
   def step(self, d):
@@ -152,7 +169,9 @@ class StabilityPolygon():
       self.points.append(self.com)
       self.offsets.append(d.T.dot(self.com))
     else:
-      raise Exception("Failed to step in direction {}".format(d))
+      m = ["Failed to step in direction {}".format(d.T),
+           "Terminated in {} state".format(self.sol['status'])]
+      raise SteppingException('\n'.join(m))
 
   def build_polys(self):
     if self.outer is None:
@@ -226,7 +245,12 @@ class StabilityPolygon():
 
     nrSteps = 0
     while(error > epsilon):
-      self.next_edge(plot_step, record_anim, nrSteps)
+      try:
+        self.next_edge(plot_step, record_anim, nrSteps)
+      except SteppingException as e:
+        print "Failure detected... Aborting"
+        print e.message
+        break
       error = area_convex(self.outer) - area_convex(self.inner)
       nrSteps += 1
 
