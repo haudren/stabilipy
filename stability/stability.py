@@ -6,6 +6,8 @@ import shapely.geometry as geom
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D # flake8: noqa
 
+from scipy.linalg import block_diag
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -117,6 +119,26 @@ class StabilityPolygon():
       return True
     return False
 
+  #Compute B as diag(B_s), resulting in only one cone constraint
+  def block_socp(self, a, A1, A2, t, B_s, u_s):
+    #Max a^T z ~ min -a^T z
+    c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
+
+    A = matrix(np.hstack([A1, A2]))
+
+    #B = diag{b_i}, u = [u1.T ... un.T].T
+    diag = block_diag(*B_s)
+    u = np.vstack(u_s)
+
+    block = -np.vstack([u.T, diag])
+    g = np.hstack([block, np.zeros((self.size_x()+1, self.size_z()))])
+
+    h = np.zeros((self.size_x() + 1, 1))
+
+    sol = solvers.socp(c, Gq=[matrix(g)], hq=[matrix(h)],
+                       A=A, b=matrix(t))
+    return sol
+
   def socp(self, a, A1, A2, t, B_s, u_s):
     #Max a^T z ~ min -a^T z
     c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
@@ -127,11 +149,11 @@ class StabilityPolygon():
     G = []
     H = []
     for i, (b, u) in enumerate(zip(B_s, u_s)):
-      block = np.hstack([-np.vstack([u.T, b]),
-                        np.zeros((4, 2))])
+      block = -np.vstack([u.T, b])
       g = np.hstack([np.zeros((4, 3*i)),
                      block,
-                     np.zeros((4, 3*(len(B_s)-1-i)))])
+                     np.zeros((4, 3*(len(self.contacts)-1-i))),
+                     np.zeros((4, self.size_z()))])
       G.append(g)
       H.append(np.zeros((4, 1)))
 
