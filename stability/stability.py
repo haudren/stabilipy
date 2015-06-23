@@ -109,6 +109,9 @@ class StabilityPolygon():
 
   def check_sizes(self):
     assert(self.A1.shape[1] + self.A2.shape[1] == self.nrVars())
+    assert(self.A1.shape == (6, self.size_x()))
+    assert(self.A2.shape == (6, self.size_z()))
+    assert(self.t.shape == (6, 1))
 
   def solve(self, a):
     self.sol = self.socp(a, self.A1, self.A2, self.t, self.B_s, self.u_s)
@@ -179,11 +182,13 @@ class StabilityPolygon():
         self.step(d)
       except SteppingException as e:
         rdir = np.random.random((2, 1))
-        print str(e), " Will try in a random direction {}".format(rdir)
+        print str(e), " Will try in a random direction {}".format(rdir.T)
         rdirs.append(rdir)
 
     for d in rdirs:
       self.step(d)
+
+    assert len(self.points) >= 3, "Not enough points to form a triangle"
 
   def step(self, d):
     if self.solve(d):
