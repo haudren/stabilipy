@@ -267,7 +267,7 @@ class StabilityPolygon():
       x, y = p[:, 1], p[:, 2]
     else:
       x, y = p[:, 1] + centroid.item(0), p[:, 2] + centroid.item(1)
-    return geom.Polygon(zip(x, y))
+    return geom.Polygon(zip(x, y)).convex_hull
 
   def plot(self):
     fig = plt.figure()
