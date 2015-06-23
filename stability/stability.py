@@ -269,13 +269,15 @@ class StabilityPolygon():
       x, y = p[:, 1] + centroid.item(0), p[:, 2] + centroid.item(1)
     return geom.Polygon(zip(x, y)).convex_hull
 
-  def plot(self):
+  def reset_fig(self):
     fig = plt.figure()
     self.ax = fig.add_subplot('111', aspect='equal', projection='3d')
     self.ax.set_xlim([-0.5, 1])
     self.ax.set_ylim([-0.5, 1])
     self.ax.set_zlim([-0.5, 1])
 
+  def plot(self):
+    self.reset_fig()
     self.plot_contacts()
     self.plot_solution()
     self.plot_polygons()
