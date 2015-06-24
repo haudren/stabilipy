@@ -76,6 +76,13 @@ class StabilityPolygon():
     self.torque_constraints = []
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
+    self.gravity_envelope = [
+        np.array([[-0.15, 0, 0]]).T,
+        np.array([[0.15, 0, 0]]).T,
+        np.array([[0, 0.15, 0]]).T,
+        np.array([[0, -0.15, 0]]).T
+                            ]
+
     self.proj = np.array([[1, 0, 0], [0, 1, 0]])
     self.inner = []
     self.outer = []
@@ -90,7 +97,7 @@ class StabilityPolygon():
       return self._size_tb
 
   def size_x(self):
-    return 3*len(self.contacts)
+    return 3*len(self.contacts)*len(self.gravity_envelope)
 
   def size_z(self):
     return 3
@@ -143,15 +150,22 @@ class StabilityPolygon():
       u_s.append(c.mu*c.n)
 
     self.A1 = np.hstack(A_s)
-    self.A2 = np.vstack([np.zeros((3, 2)),
-                         -cross_m(self.mass*self.gravity).dot(self.proj.T)])
-    self.t = np.vstack([-self.mass*self.gravity, np.array([[0], [0], [0]])])
+    self.A2 = self.computeA2(self.gravity)
+
+    self.t = self.computeT(self.gravity)
 
     self.B_s = B_s
     self.u_s = u_s
 
     self.L_s = L_s
     self.tb_s = tb_s
+
+  def computeA2(self, gravity):
+    return np.vstack([np.zeros((3, self.size_z())),
+                      -cross_m(self.mass*gravity)])
+
+  def computeT(self, gravity):
+    return np.vstack([-self.mass*gravity, np.array([[0], [0], [0]])])
 
   def check_sizes(self):
     assert(self.A1.shape[1] + self.A2.shape[1] == self.nrVars())
@@ -163,8 +177,8 @@ class StabilityPolygon():
     self.sol = self.block_socp(a, self.A1, self.A2, self.t, self.B_s, self.u_s)
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
-      self.com = vec[-2:]
-      self.forces = vec[:-2].reshape((len(self.contacts), 3)).T
+      self.com = vec[-self.size_z():]
+      self.forces = vec[:-self.size_z()].reshape((len(self.contacts)*len(self.gravity_envelope), 3)).T
       return True
     return False
 
@@ -172,7 +186,8 @@ class StabilityPolygon():
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
-        'q': [3]+[4]*len(self.contacts),  # Size of the cones: x,y,z+1
+            # Com cone is now 3d, Size of the cones: x,y,z+1
+        'q': [4]+[4]*len(self.contacts)*len(self.gravity_envelope),
         's': []  # No sd cones
             }
 
@@ -181,7 +196,14 @@ class StabilityPolygon():
     #Max a^T z ~ min -a^T z
     c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
 
-    A = matrix(np.hstack([A1, A2]))
+    A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
+    A2 = np.vstack([self.computeA2(self.gravity+e)
+                    for e in self.gravity_envelope])
+
+    T = np.vstack([self.computeT(self.gravity+e)
+                   for e in self.gravity_envelope])
+
+    A = matrix(np.hstack([A1_diag, A2]))
 
     g_s = []
     h_s = []
@@ -191,15 +213,16 @@ class StabilityPolygon():
       h_s.append(np.vstack(self.tb_s))
 
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
-    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), 2))]))
+    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
 
     h_s.append(self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
     com_cone = np.zeros((self.size_z()+1, self.nrVars()))
-    com_cone[1, -2] = -1.0  # com_x
-    com_cone[2, -1] = -1.0  # com_y
+    com_cone[1, -3] = -1.0  # com_x
+    com_cone[2, -2] = -1.0  # com_y
+    com_cone[2, -1] = -1.0  # com_z
 
     g_s.append(com_cone)
 
@@ -208,7 +231,7 @@ class StabilityPolygon():
     h_s.append(h_com_cone)
 
     #B = diag{[u_i b_i.T].T}
-    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]
+    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]*len(self.gravity_envelope)
     block = block_diag(*blocks)
 
     g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()))])
@@ -216,11 +239,14 @@ class StabilityPolygon():
     h_cones = np.zeros((size_cones, 1))
     h_s.append(h_cones)
 
+    for gi, hi in zip(g_s, h_s):
+      print gi.shape, hi.shape
+
     g = np.vstack(g_s)
     h = np.vstack(h_s)
 
     sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
-                         A=A, b=matrix(t), dims=dims)
+                         A=A, b=matrix(T), dims=dims)
     return sol
 
   def socp(self, a, A1, A2, t, B_s, u_s):
@@ -260,9 +286,9 @@ class StabilityPolygon():
     self.inner = None
     self.outer = None
     #Search in three "random" directions
-    directions = map(normalize, [np.array([[0, 1]]).T,
-                                 np.array([[1, 0]]).T,
-                                 np.array([[-1, -1]]).T])
+    directions = map(normalize, [np.array([[0, 1, 1]]).T,
+                                 np.array([[1, 0, -1]]).T,
+                                 np.array([[-1, -1, 0]]).T])
     rdirs = []
 
     for d in directions:
@@ -412,8 +438,8 @@ class StabilityPolygon():
     com_pos = self.com
     forces = self.forces
 
-    x, y = com_pos.item(0), com_pos.item(1)
-    self.ax.plot([x], [y], linestyle="none",
+    x, y, z = com_pos.item(0), com_pos.item(1), com_pos.item(2)
+    self.ax.plot([x], [y], [z], linestyle="none",
                  marker='o', alpha=0.6,
                  markersize=10, markerfacecolor='black')
 
