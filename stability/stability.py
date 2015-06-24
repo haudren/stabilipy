@@ -4,7 +4,7 @@ import cdd
 import shapely.geometry as geom
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D # flake8: noqa
+from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from scipy.linalg import block_diag
 
