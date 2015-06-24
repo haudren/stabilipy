@@ -8,6 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from scipy.linalg import block_diag
 
+from collections import namedtuple
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -30,6 +32,9 @@ def convex_hull(x_p, y_p):
   poly = geom.Polygon(zip(x_p, y_p))
   x_c, y_c = poly.convex_hull.exterior.xy
   return x_c, y_c
+
+TorqueConstraint = namedtuple('TorqueConstraint',
+                              ['indexes', 'point', 'limit'])
 
 #A contact should contain :
 # - r : position world
@@ -68,6 +73,7 @@ class StabilityPolygon():
   def __init__(self, robotMass, gravity=-9.81):
     solvers.options['show_progress'] = False
     self.contacts = []
+    self.torque_constraints = []
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
     self.proj = np.array([[1, 0, 0], [0, 1, 0]])
@@ -76,6 +82,12 @@ class StabilityPolygon():
 
   def nrVars(self):
     return self.size_x() + self.size_z()
+
+  def size_tb(self):
+    if self._size_tb is None:
+      return 6*len(self.torque_constraints)
+    else:
+      return self._size_tb
 
   def size_x(self):
     return 3*len(self.contacts)
@@ -86,13 +98,44 @@ class StabilityPolygon():
   def addContact(self, contact):
     self.contacts.append(contact)
 
+  def addTorqueConstraint(self, contacts, point, limit):
+    #Add a limit on torque at a point over contacts
+    indexes = []
+    for c in contacts:
+      indexes.append(self.contacts.index(c))
+
+    self.torque_constraints.append(TorqueConstraint(indexes, point, limit))
+
   def reset(self):
     self.contacts = []
+    self.torque_constraints = []
 
   def make_problem(self):
     A_s = []
     B_s = []
     u_s = []
+    L_s = []
+    tb_s = []
+
+    self._size_tb = 0
+
+    for tc in self.torque_constraints:
+      L = np.zeros((6, self.nrVars()))
+      for i in tc.indexes:
+        cont = self.contacts[i]
+        dist = tc.point - cont.r
+        L[:, 3*i:3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
+      #Filter L, tb to remove zero lines
+      tb = np.vstack([tc.limit, tc.limit])
+      zero_mask = np.all(L == 0, axis=1)
+
+      L = L[~zero_mask]
+      tb = tb[~zero_mask]
+
+      L_s.append(L)
+      tb_s.append(tb)
+
+      self._size_tb += L.shape[0]
 
     for c in self.contacts:
       A_s.append(np.vstack([np.eye(3), cross_m(c.r)]))
@@ -106,6 +149,9 @@ class StabilityPolygon():
 
     self.B_s = B_s
     self.u_s = u_s
+
+    self.L_s = L_s
+    self.tb_s = tb_s
 
   def check_sizes(self):
     assert(self.A1.shape[1] + self.A2.shape[1] == self.nrVars())
@@ -125,10 +171,10 @@ class StabilityPolygon():
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
-        'l': 0,  # No pure inequality constraints
-        'q': [3]+[4]*len(self.contacts),  # Size of the 2nd order cones : x,y,z+1
+        'l': self.size_tb(),  # Pure inequality constraints
+        'q': [3]+[4]*len(self.contacts),  # Size of the cones: x,y,z+1
         's': []  # No sd cones
-        }
+            }
 
     size_cones = self.size_x()*4 // 3
 
@@ -137,11 +183,12 @@ class StabilityPolygon():
 
     A = matrix(np.hstack([A1, A2]))
 
-    #B = diag{[u_i b_i.T].T}
-    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]
-    block = block_diag(*blocks)
+    g_s = []
+    h_s = []
 
-    g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()))])
+    if self.L_s:
+      g_s.append(np.vstack(self.L_s))
+      h_s.append(np.vstack(self.tb_s))
 
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
@@ -149,10 +196,23 @@ class StabilityPolygon():
     com_cone[1, -2] = -1.0  # com_x
     com_cone[2, -1] = -1.0  # com_y
 
-    g = np.vstack([com_cone, g_contacts])
+    g_s.append(com_cone)
 
-    h = np.zeros((size_com_cone+size_cones, 1))
-    h[0, 0] = 2.0
+    h_com_cone = np.zeros((size_com_cone, 1))
+    h_com_cone[0, 0] = 2.0
+    h_s.append(h_com_cone)
+
+    #B = diag{[u_i b_i.T].T}
+    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]
+    block = block_diag(*blocks)
+
+    g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()))])
+    g_s.append(g_contacts)
+    h_cones = np.zeros((size_cones, 1))
+    h_s.append(h_cones)
+
+    g = np.vstack(g_s)
+    h = np.vstack(h_s)
 
     sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
                          A=A, b=matrix(t), dims=dims)
@@ -164,9 +224,16 @@ class StabilityPolygon():
 
     A = matrix(np.hstack([A1, A2]))
 
+    #Compute com friction cone
+    g_com = np.zeros((self.size_z()+1, self.nrVars()))
+    g_com[1, -2] = -1.0  # com_x
+    g_com[2, -1] = -1.0  # com_y
+    h_com = np.zeros((3, 1))
+    h_com[0, 0] = 2.0
+    G = [g_com]
+    H = [h_com]
+
     #For G : compute all cones
-    G = []
-    H = []
     for i, (b, u) in enumerate(zip(B_s, u_s)):
       block = -np.vstack([u.T, b])
       g = np.hstack([np.zeros((4, 3*i)),
