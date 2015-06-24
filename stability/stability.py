@@ -171,7 +171,7 @@ class StabilityPolygon():
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
-        'l': self.size_tb(),  # Pure inequality constraints
+        'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
         'q': [3]+[4]*len(self.contacts),  # Size of the cones: x,y,z+1
         's': []  # No sd cones
             }
@@ -189,6 +189,11 @@ class StabilityPolygon():
     if self.L_s:
       g_s.append(np.vstack(self.L_s))
       h_s.append(np.vstack(self.tb_s))
+
+    g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
+    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), 2))]))
+
+    h_s.append(self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
