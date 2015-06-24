@@ -93,7 +93,7 @@ class StabilityPolygon():
     return 3*len(self.contacts)
 
   def size_z(self):
-    return 2
+    return 3
 
   def addContact(self, contact):
     self.contacts.append(contact)
