@@ -10,6 +10,10 @@ from scipy.linalg import block_diag
 
 from collections import namedtuple
 
+from CGAL.CGAL_Polyhedron_3 import Polyhedron_3
+from CGAL.CGAL_Kernel import Point_3, Tetrahedron_3
+from CGAL.CGAL_Convex_hull_3 import convex_hull_3
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -32,6 +36,59 @@ def convex_hull(x_p, y_p):
   poly = geom.Polygon(zip(x_p, y_p))
   x_c, y_c = poly.convex_hull.exterior.xy
   return x_c, y_c
+
+def add_cgal(p1, p2):
+  return Point_3(p1.x() + p2.x(),
+                 p1.y() + p2.y(),
+                 p1.z() + p2.z())
+
+def mult_cgal(p, a):
+  return Point_3(a*p.x(), a*p.y(), a*p.z())
+
+def as_list(p):
+  return [p.x(), p.y(), p.z()]
+
+def convexify_polyhedron(hrep):
+  gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  #If the polygon is empty or degenerate, return 0
+  if gen.shape[0] < 3:
+    return 0
+
+  points = [Point_3(x, y, z) for x, y, z in gen[:, 1:]]
+  poly = Polyhedron_3()
+  convex_hull_3(points, poly)
+  lines = [np.array([as_list(p)]) for p in poly.points()]
+  return np.vstack(lines)
+
+def volume_convex(hrep):
+  gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  #If the polygon is empty or degenerate, return 0
+  if gen.shape[0] < 3:
+    return 0
+  #p = np.vstack([gen, gen[0, :]])
+  p = gen
+
+  points = [Point_3(x, y, z) for x, y, z in p[:, 1:]]
+  poly = Polyhedron_3()
+  convex_hull_3(points, poly)
+  points = list(poly.points())
+
+  center = mult_cgal(reduce(add_cgal, points),
+                     1/float(len(points)))
+  volume = 0
+
+  for facet in poly.facets():
+    points = []
+    he = facet.halfedge()
+    points.append(he.vertex().point())
+    h = he.next()
+    while h != he:
+      points.append(h.vertex().point())
+      h = h.next()
+    points.append(center)
+    volume += abs(Tetrahedron_3(*points).volume())
+
+  return volume
 
 TorqueConstraint = namedtuple('TorqueConstraint',
                               ['indexes', 'point', 'limit'])
@@ -285,10 +342,19 @@ class StabilityPolygon():
     self.offsets = []
     self.inner = None
     self.outer = None
-    #Search in three "random" directions
+    #Search in "random" directions
     directions = map(normalize, [np.array([[0, 1, 1]]).T,
                                  np.array([[1, 0, -1]]).T,
-                                 np.array([[-1, -1, 0]]).T])
+                                 np.array([[-1, -1, 0]]).T,
+                                 np.array([[1, -1, 1]]).T])
+
+    directions = map(normalize, [np.array([[1, 0, 0]]).T,
+                                 np.array([[-1, 0, 0]]).T,
+                                 np.array([[0, 1, 0]]).T,
+                                 np.array([[0, -1, 0]]).T,
+                                 np.array([[0, 0, 1]]).T,
+                                 np.array([[0, 0, -1]]).T])
+
     rdirs = []
 
     for d in directions:
@@ -335,22 +401,22 @@ class StabilityPolygon():
 
   def find_direction(self):
     self.build_polys()
-    out_area = area_convex(self.outer)
+    out_volume = volume_convex(self.outer)
 
-    areas = []
+    volumes = []
     ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
 
     for line in ineq:
       A_e = self.outer.copy()
       A_e.extend(cdd.Matrix(line.reshape(1, line.size)))
       A_e.canonicalize()
-      areas.append(out_area - area_convex(A_e))
+      volumes.append(out_volume - volume_convex(A_e))
 
     i, a = max(enumerate(areas), key=lambda x: x[1])
     return -ineq[i, 1:]
 
   def next_edge(self, plot=False, record=False, number=0):
-    d = normalize(self.find_direction().reshape((2, 1)))
+    d = normalize(self.find_direction().reshape((self.size_z(), 1)))
     self.step(d)
 
     if plot or record:
@@ -378,7 +444,7 @@ class StabilityPolygon():
       self.plot()
       self.show()
 
-    error = area_convex(self.outer) - area_convex(self.inner)
+    error = volume_convex(self.outer) - volume_convex(self.inner)
 
     iterBound = self.iterBound(3, error, epsilon)
 
@@ -392,7 +458,7 @@ class StabilityPolygon():
         print "Failure detected... Aborting"
         print e.message
         break
-      error = area_convex(self.outer) - area_convex(self.inner)
+      error = volume_convex(self.outer) - volume_convex(self.inner)
       nrSteps += 1
 
     print "NrIter : {} | Remainder : {}".format(nrSteps, error)
@@ -410,6 +476,13 @@ class StabilityPolygon():
       x, y = p[:, 1] + centroid.item(0), p[:, 2] + centroid.item(1)
     return geom.Polygon(zip(x, y)).convex_hull
 
+  def polyhedron(self):
+    p = convexify_polyhedron(self.inner)
+    return p
+
+  def save_polyhedron(self, fname):
+    np.savetxt(fname, self.polyhedron())
+
   def reset_fig(self):
     fig = plt.figure()
     self.ax = fig.add_subplot('111', aspect='equal', projection='3d')
@@ -421,7 +494,7 @@ class StabilityPolygon():
     self.reset_fig()
     self.plot_contacts()
     self.plot_solution()
-    self.plot_polygons()
+    self.plot_polyhedrons()
 
   def show(self):
     plt.show()
@@ -443,7 +516,7 @@ class StabilityPolygon():
                  marker='o', alpha=0.6,
                  markersize=10, markerfacecolor='black')
 
-    positions = np.hstack([c.r for c in self.contacts])
+    positions = np.hstack([c.r for c in self.contacts*len(self.gravity_envelope)])
 
     for pos, force in zip(positions.T, forces.T):
       X, Y, Z = pos[0], pos[1], pos[2]
@@ -454,14 +527,11 @@ class StabilityPolygon():
   def plot_direction(self, d):
     self.ax.plot([0, d.item(0)], [0, d.item(1)], marker='d')
 
-  def plot_polygons(self):
-    self.plot_polygon(self.inner, 'x')
-    self.plot_polygon(self.outer, 'o')
+  def plot_polyhedrons(self):
+    self.plot_polyhedron(self.inner, 'red')
+    self.plot_polyhedron(self.outer, 'blue')
 
-  def plot_polygon(self, poly, m):
-    gen = np.array(cdd.Polyhedron(poly).get_generators())
-    p = np.vstack([gen, gen[0, :]])
-    x, y = p[:, 1], p[:, 2]
-    poly = geom.Polygon(zip(x, y))
-    x, y = poly.convex_hull.exterior.xy
-    self.ax.plot(x, y, marker=m)
+  def plot_polyhedron(self, poly, m):
+    p = convexify_polyhedron(poly)
+    x, y, z = p[:, 0], p[:, 1], p[:, 2]
+    self.ax.scatter(x, y, z, color=m)
