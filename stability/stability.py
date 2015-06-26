@@ -60,6 +60,17 @@ def convexify_polyhedron(hrep):
   lines = [np.array([as_list(p)]) for p in poly.points()]
   return np.vstack(lines)
 
+def tetrahedron_from_facet(facet, center):
+  points = []
+  he = facet.halfedge()
+  points.append(he.vertex().point())
+  h = he.next()
+  for i in range(facet.facet_degree()-1):
+    points.append(h.vertex().point())
+    h = h.next()
+  points.append(center)
+  return Tetrahedron_3(*points)
+
 def volume_convex(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
@@ -75,20 +86,10 @@ def volume_convex(hrep):
 
   center = mult_cgal(reduce(add_cgal, points),
                      1/float(len(points)))
-  volume = 0
 
-  for facet in poly.facets():
-    points = []
-    he = facet.halfedge()
-    points.append(he.vertex().point())
-    h = he.next()
-    while h != he:
-      points.append(h.vertex().point())
-      h = h.next()
-    points.append(center)
-    volume += abs(Tetrahedron_3(*points).volume())
+  tetrahedrons = [tetrahedron_from_facet(f, center) for f in poly.facets()]
 
-  return volume
+  return sum([abs(t.volume()) for t in tetrahedrons])
 
 TorqueConstraint = namedtuple('TorqueConstraint',
                               ['indexes', 'point', 'limit'])
