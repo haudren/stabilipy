@@ -309,16 +309,16 @@ class StabilityPolygon():
 
   def find_direction(self):
     self.build_polys()
-    out_area = area_convex(self.outer)
 
     areas = []
     ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
 
     for line in ineq:
       A_e = self.outer.copy()
-      A_e.extend(cdd.Matrix(line.reshape(1, line.size)))
+      A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
       A_e.canonicalize()
-      areas.append(out_area - area_convex(A_e))
+
+      areas.append(area_convex(A_e))
 
     i, a = max(enumerate(areas), key=lambda x: x[1])
     return -ineq[i, 1:]
