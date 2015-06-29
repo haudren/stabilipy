@@ -140,7 +140,8 @@ class StabilityPolygon():
         np.array([[0, 0.15, 0]]).T,
         np.array([[0, -0.15, 0]]).T
                             ]
-
+    self.radius = 2.0
+    self.force_lim = 1.0
     self.proj = np.array([[1, 0, 0], [0, 1, 0]])
     self.inner = []
     self.outer = []
@@ -273,19 +274,19 @@ class StabilityPolygon():
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
     g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
 
-    h_s.append(self.mass*9.81*np.ones((2*self.size_x(), 1)))
+    h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
     com_cone = np.zeros((self.size_z()+1, self.nrVars()))
     com_cone[1, -3] = -1.0  # com_x
     com_cone[2, -2] = -1.0  # com_y
-    com_cone[2, -1] = -1.0  # com_z
+    com_cone[3, -1] = -1.0  # com_z
 
     g_s.append(com_cone)
 
     h_com_cone = np.zeros((size_com_cone, 1))
-    h_com_cone[0, 0] = 2.0
+    h_com_cone[0, 0] = self.radius
     h_s.append(h_com_cone)
 
     #B = diag{[u_i b_i.T].T}
