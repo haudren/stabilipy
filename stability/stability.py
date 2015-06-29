@@ -496,6 +496,7 @@ class StabilityPolygon():
     self.plot_contacts()
     self.plot_solution()
     self.plot_polyhedrons()
+    self.plot_sphere(self.radius, 'b')
 
   def show(self):
     plt.show()
@@ -536,3 +537,11 @@ class StabilityPolygon():
     p = convexify_polyhedron(poly)
     x, y, z = p[:, 0], p[:, 1], p[:, 2]
     self.ax.scatter(x, y, z, color=m)
+
+  def plot_sphere(self, radius, color):
+    u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
+    r = radius
+    x = r*np.cos(u)*np.sin(v)
+    y = r*np.sin(u)*np.sin(v)
+    z = r*np.cos(v)
+    self.ax.plot_wireframe(x, y, z, color=color, alpha=0.2)
