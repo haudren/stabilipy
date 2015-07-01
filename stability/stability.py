@@ -23,7 +23,10 @@ def normalize(vec):
   return vec/(np.linalg.norm(vec))
 
 def area_convex(hrep):
-  gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  try:
+    gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  except RuntimeError:  # Whenever numerical inconsistency is found
+    return 0
   #If the polygon is empty or degenerate, return 0
   if gen.shape[0] < 3:
     return 0
@@ -405,7 +408,11 @@ class StabilityPolygon():
     self.build_polys()
 
     volumes = []
-    ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
+
+    try:
+      ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
+    except RuntimeError:
+      raise SteppingException('Numerical inconsistency found')
 
     for line in ineq:
       A_e = self.outer.copy()
@@ -416,7 +423,7 @@ class StabilityPolygon():
     i, a = max(enumerate(volumes), key=lambda x: x[1])
     return -ineq[i, 1:]
 
-  def next_edge(self, plot=False, record=False, number=0):
+  def next_edge(self, plot=False, record=False, fname_poly=False, number=0):
     d = normalize(self.find_direction().reshape((self.size_z(), 1)))
     self.step(d)
 
@@ -429,6 +436,10 @@ class StabilityPolygon():
         plt.savefig(filename)
         plt.close()
 
+    if fname_poly is not None:
+      self.save_polyhedron(fname_poly+'_inner_{0:04d}'.format(number))
+      self.save_outer(fname_poly+'_outer_{0:04d}'.format(number))
+
   def iterBound(self, nr_edges_init, error_init, prec):
     c = float(343)/float(243)
     return nr_edges_init*(np.sqrt(c*error_init/prec) - 1)
@@ -436,10 +447,13 @@ class StabilityPolygon():
   def compute(self, epsilon=1e-4, plot_init=False,
               plot_step=False,
               record_anim=False,
-              plot_final=True):
+              plot_final=True,
+              fname_polys=None):
     self.make_problem()
     self.init_algo()
     self.build_polys()
+
+    failure = False
 
     if plot_init:
       self.plot()
@@ -454,17 +468,18 @@ class StabilityPolygon():
     nrSteps = 0
     while(error > epsilon):
       try:
-        self.next_edge(plot_step, record_anim, nrSteps)
+        self.next_edge(plot_step, record_anim, fname_polys, nrSteps)
       except SteppingException as e:
         print "Failure detected... Aborting"
         print e.message
+        failure = True
         break
       error = volume_convex(self.outer) - volume_convex(self.inner)
       nrSteps += 1
 
     print "NrIter : {} | Remainder : {}".format(nrSteps, error)
 
-    if plot_final:
+    if plot_final and not failure:
       self.plot()
       self.show()
 
