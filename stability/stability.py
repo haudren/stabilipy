@@ -301,9 +301,6 @@ class StabilityPolygon():
     h_cones = np.zeros((size_cones, 1))
     h_s.append(h_cones)
 
-    for gi, hi in zip(g_s, h_s):
-      print gi.shape, hi.shape
-
     g = np.vstack(g_s)
     h = np.vstack(h_s)
 
