@@ -499,12 +499,19 @@ class StabilityPolygon():
   def save_polyhedron(self, fname):
     np.savetxt(fname, self.polyhedron())
 
+  def save_outer(self, fname):
+    np.savetxt(fname, convexify_polyhedron(self.outer))
+
   def reset_fig(self):
     fig = plt.figure()
     self.ax = fig.add_subplot('111', aspect='equal', projection='3d')
-    self.ax.set_xlim([-0.5, 1])
-    self.ax.set_ylim([-0.5, 1])
-    self.ax.set_zlim([-0.5, 1])
+    tup = [-1.1*self.radius, 1.1*self.radius]
+    self.ax.set_xlim(tup)
+    self.ax.set_ylim(tup)
+    self.ax.set_zlim(tup)
+
+    self.ax.elev = 30.
+    #self.ax.dist = 20.
 
   def plot(self):
     self.reset_fig()
