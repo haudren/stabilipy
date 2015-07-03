@@ -9,6 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa
 from scipy.linalg import block_diag
 
 from collections import namedtuple
+from enum import Enum, unique
 
 from CGAL.CGAL_Polyhedron_3 import Polyhedron_3
 from CGAL.CGAL_Kernel import Point_3, Tetrahedron_3
@@ -151,6 +152,11 @@ def cgal_volume_convex(hrep):
 TorqueConstraint = namedtuple('TorqueConstraint',
                               ['indexes', 'point', 'limit'])
 
+@unique
+class Mode(Enum):
+  precision = 1
+  iteration = 2
+
 #A contact should contain :
 # - r : position world
 # - n : normal to teh surface
@@ -192,10 +198,11 @@ class StabilityPolygon():
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
     self.gravity_envelope = [
-        np.array([[-0.15, 0, 0]]).T,
-        np.array([[0.15, 0, 0]]).T,
-        np.array([[0, 0.15, 0]]).T,
-        np.array([[0, -0.15, 0]]).T
+        np.array([[-0.55, 0, 0]]).T,
+        np.array([[0.55, 0, 0]]).T,
+        np.array([[0, 0.55, 0]]).T,
+        np.array([[0, -0.55, 0]]).T
+        #np.array([[0, 0.0, 0]]).T
                             ]
     self.radius = 2.0
     self.force_lim = 1.0
@@ -504,12 +511,14 @@ class StabilityPolygon():
     c = float(343)/float(243)
     return nr_edges_init*(np.sqrt(c*error_init/prec) - 1)
 
-  def compute(self, epsilon=1e-4, plot_init=False,
+  def compute(self, mode, maxIter=100, epsilon=1e-4,
+              plot_init=False,
               plot_step=False,
               plot_direction=False,
               record_anim=False,
               plot_final=True,
               fname_polys=None):
+
     self.make_problem()
     self.init_algo()
     self.build_polys()
@@ -522,12 +531,16 @@ class StabilityPolygon():
 
     error = volume_convex(self.outer) - volume_convex(self.inner)
 
-    iterBound = self.iterBound(3, error, epsilon)
-
-    print "This should take {} iterations".format(np.ceil(iterBound))
+    if(mode is Mode.precision):
+      iterBound = self.iterBound(3, error, epsilon)
+      print "Reaching {} should take {} iterations".format(epsilon, np.ceil(iterBound))
+      stop_condition = lambda: error > epsilon
+    elif(mode is Mode.iteration):
+      print "This will take {} iterations".format(maxIter)
+      stop_condition = lambda: nrSteps < maxIter
 
     nrSteps = 0
-    while(error > epsilon):
+    while(stop_condition()):
       try:
         self.next_edge(plot_step, plot_direction, record_anim,
                        fname_polys, nrSteps)
@@ -537,6 +550,7 @@ class StabilityPolygon():
         failure = True
         break
       error = volume_convex(self.outer) - volume_convex(self.inner)
+      print error
       nrSteps += 1
 
     print "NrIter : {} | Remainder : {}".format(nrSteps, error)

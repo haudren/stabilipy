@@ -1,7 +1,7 @@
 import stability as stab
 import numpy as np
 
-execfile('box_contacts.py')
+execfile('stairs_contacts.py')
 
 def main():
   global pos, normals
@@ -22,7 +22,23 @@ def main():
   #poly.make_problem()
   #poly.check_sizes()
 
-  poly.compute(1e-2, True, False, False, True)
+  point = np.array([[0.36510907, 0.31419711, 0.73607441]]).T
+
+  poly.addTorqueConstraint(contacts[-4:-2],
+                           point,
+                           10*np.ones((3, 1)))
+
+  poly.addTorqueConstraint(contacts[-2:],
+                           point,
+                           10*np.ones((3, 1)))
+  poly.make_problem()
+
+  #poly.compute(stab.Mode.precision, epsilon=5e-2,
+  #             plot_init=True, plot_final=True)
+
+  poly.compute(stab.Mode.iteration, maxIter=50,
+               plot_init=True, plot_final=True)
+
   return poly
 
 if __name__ == '__main__':
