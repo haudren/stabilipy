@@ -14,6 +14,11 @@ from CGAL.CGAL_Polyhedron_3 import Polyhedron_3
 from CGAL.CGAL_Kernel import Point_3, Tetrahedron_3
 from CGAL.CGAL_Convex_hull_3 import convex_hull_3
 
+from qhull_sch import convexVolume, convexHull
+
+from scipy.spatial import ConvexHull
+from scipy.spatial.qhull import QhullError
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -52,6 +57,29 @@ def as_list(p):
   return [p.x(), p.y(), p.z()]
 
 def convexify_polyhedron(hrep):
+  return scipy_convexify_polyhedron(hrep)
+
+def qhull_convexify_polyhedron(hrep):
+  gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  #If the polygon is empty or degenerate, return 0
+  if gen.shape[0] < 3:
+    return 0
+
+  points = gen[:, 1:].tolist()
+  pout = convexHull(points)
+  return np.array(pout)
+
+def scipy_convexify_polyhedron(hrep):
+  points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
+  ch = ConvexHull(points)
+  return ch.points
+
+def scipy_triangulate_polyhedron(hrep):
+  points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
+  ch = ConvexHull(points)
+  return ch.points[:, 0], ch.points[:, 1], ch.points[:, 2], ch.simplices
+
+def cgal_convexify_polyhedron(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
   if gen.shape[0] < 3:
@@ -75,6 +103,32 @@ def tetrahedron_from_facet(facet, center):
   return Tetrahedron_3(*points)
 
 def volume_convex(hrep):
+  return scipy_volume_convex(hrep)
+
+def scipy_volume_convex(hrep):
+  try:
+    points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
+  except RuntimeError:
+    return 0
+
+  if points.shape[0] < 4:
+    return 0
+
+  try:
+    ch = ConvexHull(points)
+  except QhullError:
+    return 0
+  return ch.volume
+
+def qhull_volume_convex(hrep):
+  gen = np.array(cdd.Polyhedron(hrep).get_generators())
+  #If the polygon is empty or degenerate, return 0
+  if gen.shape[0] < 3:
+    return 0
+  points = gen[:, 1:].tolist()
+  return convexVolume(points)
+
+def cgal_volume_convex(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
   if gen.shape[0] < 3:
@@ -549,13 +603,12 @@ class StabilityPolygon():
     self.ax.plot([0, d.item(0)], [0, d.item(1)], marker='d')
 
   def plot_polyhedrons(self):
-    self.plot_polyhedron(self.inner, 'red')
-    self.plot_polyhedron(self.outer, 'blue')
+    self.plot_polyhedron(self.inner, 'red', 0.5)
+    self.plot_polyhedron(self.outer, 'blue', 0.1)
 
-  def plot_polyhedron(self, poly, m):
-    p = convexify_polyhedron(poly)
-    x, y, z = p[:, 0], p[:, 1], p[:, 2]
-    self.ax.scatter(x, y, z, color=m)
+  def plot_polyhedron(self, poly, c, a):
+    x, y, z, tri = scipy_triangulate_polyhedron(poly)
+    self.ax.plot_trisurf(x, y, z, triangles=tri, color=c, alpha=a)
 
   def plot_sphere(self, radius, color):
     u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
