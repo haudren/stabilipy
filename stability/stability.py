@@ -156,6 +156,7 @@ TorqueConstraint = namedtuple('TorqueConstraint',
 class Mode(Enum):
   precision = 1
   iteration = 2
+  best = 3
 
 #A contact should contain :
 # - r : position world
@@ -533,11 +534,17 @@ class StabilityPolygon():
 
     if(mode is Mode.precision):
       iterBound = self.iterBound(3, error, epsilon)
-      print "Reaching {} should take {} iterations".format(epsilon, np.ceil(iterBound))
+      print "Reaching {} should take {} iterations".format(epsilon,
+                                                           np.ceil(iterBound))
       stop_condition = lambda: error > epsilon
     elif(mode is Mode.iteration):
       print "This will take {} iterations".format(maxIter)
       stop_condition = lambda: nrSteps < maxIter
+    elif(mode is Mode.best):
+      print "Will try to reach {} under {} iterations".format(epsilon, maxIter)
+      stop_condition = lambda: nrSteps < maxIter and error > epsilon
+    else:
+      raise ValueError("Unknown mode, please use a value supplied in enum")
 
     nrSteps = 0
     while(stop_condition()):

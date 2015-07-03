@@ -33,10 +33,7 @@ def main():
                            10*np.ones((3, 1)))
   poly.make_problem()
 
-  #poly.compute(stab.Mode.precision, epsilon=5e-2,
-  #             plot_init=True, plot_final=True)
-
-  poly.compute(stab.Mode.iteration, maxIter=50,
+  poly.compute(stab.Mode.best, maxIter=100, epsilon=2e-1,
                plot_init=True, plot_final=True)
 
   return poly
