@@ -456,7 +456,7 @@ class StabilityPolygon():
       self.inner.extend(np.hstack(([[1]], self.points[-1].T)))
       self.inner.canonicalize()
 
-  def find_direction(self):
+  def find_direction(self, plot=False):
     self.build_polys()
 
     volumes = []
@@ -470,13 +470,21 @@ class StabilityPolygon():
       A_e = self.outer.copy()
       A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
       A_e.canonicalize()
+
+      if plot:
+        self.reset_fig()
+        self.plot_polyhedrons()
+        self.plot_polyhedron(A_e, 'm', 0.5)
+        self.show()
+
       volumes.append(volume_convex(A_e))
 
     i, a = max(enumerate(volumes), key=lambda x: x[1])
     return -ineq[i, 1:]
 
-  def next_edge(self, plot=False, record=False, fname_poly=False, number=0):
-    d = normalize(self.find_direction().reshape((self.size_z(), 1)))
+  def next_edge(self, plot=False, plot_direction=False,
+                record=False, fname_poly=False, number=0):
+    d = normalize(self.find_direction(plot_direction).reshape((self.size_z(), 1)))
     self.step(d)
 
     if plot or record:
@@ -498,6 +506,7 @@ class StabilityPolygon():
 
   def compute(self, epsilon=1e-4, plot_init=False,
               plot_step=False,
+              plot_direction=False,
               record_anim=False,
               plot_final=True,
               fname_polys=None):
@@ -520,7 +529,8 @@ class StabilityPolygon():
     nrSteps = 0
     while(error > epsilon):
       try:
-        self.next_edge(plot_step, record_anim, fname_polys, nrSteps)
+        self.next_edge(plot_step, plot_direction, record_anim,
+                       fname_polys, nrSteps)
       except SteppingException as e:
         print "Failure detected... Aborting"
         print e.message
