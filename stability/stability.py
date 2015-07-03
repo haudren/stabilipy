@@ -294,7 +294,8 @@ class StabilityPolygon():
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
       self.com = vec[-self.size_z():]
-      self.forces = vec[:-self.size_z()].reshape((len(self.contacts)*len(self.gravity_envelope), 3)).T
+      nrForces = len(self.contacts)*len(self.gravity_envelope)
+      self.forces = vec[:-self.size_z()].reshape((nrForces, 3)).T
       return True
     return False
 
