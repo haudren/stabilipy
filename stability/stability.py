@@ -375,29 +375,50 @@ class StabilityPolygon():
     #Max a^T z ~ min -a^T z
     c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
 
-    A = matrix(np.hstack([A1, A2]))
+    A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
+    A2 = np.vstack([self.computeA2(self.gravity+e)
+                    for e in self.gravity_envelope])
+
+    T = np.vstack([self.computeT(self.gravity+e)
+                   for e in self.gravity_envelope])
+
+    A = matrix(np.hstack([A1_diag, A2]))
+
+    g_s, h_s = [], []
+
+    if self.L_s:
+      g_s.append(np.vstack(self.L_s))
+      h_s.append(np.vstack(self.tb_s))
+
+    g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
+    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
+
+    h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
+
+    gl = np.vstack(g_s)
+    hl = np.vstack(h_s)
 
     #Compute com friction cone
     g_com = np.zeros((self.size_z()+1, self.nrVars()))
-    g_com[1, -2] = -1.0  # com_x
-    g_com[2, -1] = -1.0  # com_y
-    h_com = np.zeros((3, 1))
-    h_com[0, 0] = 2.0
+    g_com[1:, -3:] = -np.eye(3)
+    h_com = np.zeros((self.size_z()+1, 1))
+    h_com[0, 0] = self.radius
     G = [g_com]
     H = [h_com]
 
     #For G : compute all cones
-    for i, (b, u) in enumerate(zip(B_s, u_s)):
+    for i, (b, u) in enumerate(zip(B_s, u_s)*len(self.gravity_envelope)):
       block = -np.vstack([u.T, b])
       g = np.hstack([np.zeros((4, 3*i)),
                      block,
-                     np.zeros((4, 3*(len(self.contacts)-1-i))),
+                     np.zeros((4, 3*(len(self.contacts)*len(self.gravity_envelope)-1-i))),
                      np.zeros((4, self.size_z()))])
       G.append(g)
       H.append(np.zeros((4, 1)))
 
-    sol = solvers.socp(c, Gq=map(matrix, G), hq=map(matrix, H),
-                       A=A, b=matrix(t))
+    sol = solvers.socp(c, Gl=matrix(gl), hl=matrix(hl),
+                       Gq=map(matrix, G), hq=map(matrix, H),
+                       A=A, b=matrix(T))
     return sol
 
   def init_algo(self):
