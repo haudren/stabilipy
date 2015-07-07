@@ -78,7 +78,7 @@ def scipy_convexify_polyhedron(hrep):
 def scipy_triangulate_polyhedron(hrep):
   points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
   ch = ConvexHull(points)
-  return ch.points[:, 0], ch.points[:, 1], ch.points[:, 2], ch.simplices
+  return [c for c in ch.points.T], ch.simplices
 
 def cgal_convexify_polyhedron(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
@@ -112,7 +112,7 @@ def scipy_volume_convex(hrep):
   except RuntimeError:
     return 0
 
-  if points.shape[0] < 4:
+  if points.shape[0] < 3:
     return 0
 
   try:
@@ -286,7 +286,7 @@ class StabilityPolygon():
 
   def computeA2(self, gravity):
     return np.vstack([np.zeros((3, self.size_z())),
-                      -cross_m(self.mass*gravity)])
+                      -cross_m(self.mass*gravity).dot(self.proj.T)])
 
   def computeT(self, gravity):
     return np.vstack([-self.mass*gravity, np.array([[0], [0], [0]])])
@@ -312,7 +312,7 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [4]+[4]*len(self.contacts)*len(self.gravity_envelope),
+        'q': [self.size_z()+1]+[4]*len(self.contacts)*len(self.gravity_envelope),
         's': []  # No sd cones
             }
 
@@ -345,9 +345,7 @@ class StabilityPolygon():
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
     com_cone = np.zeros((self.size_z()+1, self.nrVars()))
-    com_cone[1, -3] = -1.0  # com_x
-    com_cone[2, -2] = -1.0  # com_y
-    com_cone[3, -1] = -1.0  # com_z
+    com_cone[1:, -self.size_z():] = -np.eye(self.size_z())
 
     g_s.append(com_cone)
 
@@ -400,7 +398,7 @@ class StabilityPolygon():
 
     #Compute com friction cone
     g_com = np.zeros((self.size_z()+1, self.nrVars()))
-    g_com[1:, -3:] = -np.eye(3)
+    g_com[1:, -3:] = -np.eye(self.size_z())
     h_com = np.zeros((self.size_z()+1, 1))
     h_com[0, 0] = self.radius
     G = [g_com]
@@ -639,8 +637,7 @@ class StabilityPolygon():
     com_pos = self.com
     forces = self.forces
 
-    x, y, z = com_pos.item(0), com_pos.item(1), com_pos.item(2)
-    self.ax.plot([x], [y], [z], linestyle="none",
+    self.ax.plot(*com_pos, linestyle="none",
                  marker='o', alpha=0.6,
                  markersize=10, markerfacecolor='black')
 
@@ -660,13 +657,24 @@ class StabilityPolygon():
     self.plot_polyhedron(self.outer, 'blue', 0.1)
 
   def plot_polyhedron(self, poly, c, a):
-    x, y, z, tri = scipy_triangulate_polyhedron(poly)
-    self.ax.plot_trisurf(x, y, z, triangles=tri, color=c, alpha=a)
+    coords, tri = scipy_triangulate_polyhedron(poly)
+    if len(coords) == 3:
+      self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a)
+    else:
+      self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
+      self.ax.triplot(*coords, triangles=tri, color=c, alpha=a)
 
   def plot_sphere(self, radius, color):
-    u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
-    r = radius
-    x = r*np.cos(u)*np.sin(v)
-    y = r*np.sin(u)*np.sin(v)
-    z = r*np.cos(v)
-    self.ax.plot_wireframe(x, y, z, color=color, alpha=0.2)
+    if self.size_z() == 3:
+      u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
+      r = radius
+      x = r*np.cos(u)*np.sin(v)
+      y = r*np.sin(u)*np.sin(v)
+      z = r*np.cos(v)
+      self.ax.plot_wireframe(x, y, z, color=color, alpha=0.2)
+    else:
+      u = np.mgrid[0:2*np.pi:40j]
+      r = radius
+      x = r*np.cos(u)
+      y = r*np.sin(u)
+      self.ax.plot(x, y, color=color, alpha=0.2)
