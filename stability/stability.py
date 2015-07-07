@@ -112,7 +112,7 @@ def scipy_volume_convex(hrep):
   except RuntimeError:
     return 0
 
-  if points.shape[0] < 3:
+  if points.shape[0] < points.shape[1]+1:
     return 0
 
   try:
