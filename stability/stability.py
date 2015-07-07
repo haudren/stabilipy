@@ -192,22 +192,33 @@ class SteppingException(Exception):
 # Then call compute with desired precision.
 
 class StabilityPolygon():
-  def __init__(self, robotMass, gravity=-9.81):
+  def __init__(self, robotMass, dimension=3, gravity=-9.81):
     solvers.options['show_progress'] = False
     self.contacts = []
     self.torque_constraints = []
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
-    self.gravity_envelope = [
-        np.array([[-0.55, 0, 0]]).T,
-        np.array([[0.55, 0, 0]]).T,
-        np.array([[0, 0.55, 0]]).T,
-        np.array([[0, -0.55, 0]]).T
-        #np.array([[0, 0.0, 0]]).T
-                            ]
+    self.dimension = dimension
+
+    if dimension == 3:
+      self.gravity_envelope = [
+          np.array([[-0.15, 0, 0]]).T,
+          np.array([[0.15, 0, 0]]).T,
+          np.array([[0, 0.15, 0]]).T,
+          np.array([[0, -0.15, 0]]).T
+                              ]
+      self.proj = np.eye(3)
+
+    elif dimension == 2:
+      self.gravity_envelope = [
+          np.array([[0.0, 0.0, 0.0]]).T
+                              ]
+      self.proj = np.array([[1, 0, 0], [0, 1, 0]])
+    else:
+      raise ValueError("Dimension can only be 2 or 3")
+
     self.radius = 2.0
-    self.force_lim = 1.0
-    self.proj = np.array([[1, 0, 0], [0, 1, 0]])
+    self.force_lim = 100.0
     self.inner = []
     self.outer = []
 
@@ -224,7 +235,7 @@ class StabilityPolygon():
     return 3*len(self.contacts)*len(self.gravity_envelope)
 
   def size_z(self):
-    return 3
+    return self.dimension
 
   def addContact(self, contact):
     self.contacts.append(contact)
@@ -427,17 +438,18 @@ class StabilityPolygon():
     self.inner = None
     self.outer = None
     #Search in "random" directions
-    directions = map(normalize, [np.array([[0, 1, 1]]).T,
-                                 np.array([[1, 0, -1]]).T,
-                                 np.array([[-1, -1, 0]]).T,
-                                 np.array([[1, -1, 1]]).T])
-
-    directions = map(normalize, [np.array([[1, 0, 0]]).T,
-                                 np.array([[-1, 0, 0]]).T,
-                                 np.array([[0, 1, 0]]).T,
-                                 np.array([[0, -1, 0]]).T,
-                                 np.array([[0, 0, 1]]).T,
-                                 np.array([[0, 0, -1]]).T])
+    if self.dimension == 3:
+      directions = map(normalize, [np.array([[1, 0, 0]]).T,
+                                   np.array([[-1, 0, 0]]).T,
+                                   np.array([[0, 1, 0]]).T,
+                                   np.array([[0, -1, 0]]).T,
+                                   np.array([[0, 0, 1]]).T,
+                                   np.array([[0, 0, -1]]).T])
+    elif self.dimension == 2:
+      directions = map(normalize, [np.array([[1, 0]]).T,
+                                   np.array([[-1, 0]]).T,
+                                   np.array([[0, 1]]).T,
+                                   np.array([[0, -1]]).T])
 
     rdirs = []
 
@@ -445,7 +457,7 @@ class StabilityPolygon():
       try:
         self.step(d)
       except SteppingException as e:
-        rdir = np.random.random((2, 1))
+        rdir = np.random.random((self.size_z(), 1))
         print str(e), " Will try in a random direction {}".format(rdir.T)
         rdirs.append(rdir)
 
