@@ -303,8 +303,10 @@ class StabilityPolygon():
     return np.vstack([-self.mass*gravity, np.array([[0], [0], [0]])])
 
   def check_sizes(self):
-    assert(self.A1.shape[1] + self.A2.shape[1] == self.nrVars())
-    assert(self.A1.shape == (6, self.size_x()))
+    assert(self.A1.shape[1]*len(self.gravity_envelope)
+           + self.A2.shape[1]
+           == self.nrVars())
+    assert(self.A1.shape == (6, self.size_x() // len(self.gravity_envelope)))
     assert(self.A2.shape == (6, self.size_z()))
     assert(self.t.shape == (6, 1))
 
