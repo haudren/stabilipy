@@ -70,7 +70,7 @@ class SteppingException(Exception):
 # Then call compute with desired precision.
 
 class StabilityPolygon():
-  def __init__(self, robotMass, gravity=-9.81):
+  def __init__(self, robotMass, gravity=-9.81, f_lim=5.):
     solvers.options['show_progress'] = False
     self.contacts = []
     self.torque_constraints = []
@@ -79,6 +79,7 @@ class StabilityPolygon():
     self.proj = np.array([[1, 0, 0], [0, 1, 0]])
     self.inner = []
     self.outer = []
+    self.force_lim = f_lim
 
   def nrVars(self):
     return self.size_x() + self.size_z()
@@ -193,7 +194,7 @@ class StabilityPolygon():
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
     g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), 2))]))
 
-    h_s.append(self.mass*9.81*np.ones((2*self.size_x(), 1)))
+    h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
     #This com cone should prevent com from going to infinity : ||com|| =< max
     size_com_cone = self.size_z()+1
@@ -204,7 +205,7 @@ class StabilityPolygon():
     g_s.append(com_cone)
 
     h_com_cone = np.zeros((size_com_cone, 1))
-    h_com_cone[0, 0] = 2.0
+    h_com_cone[0, 0] = 1.5
     h_s.append(h_com_cone)
 
     #B = diag{[u_i b_i.T].T}
