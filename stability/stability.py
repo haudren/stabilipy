@@ -266,7 +266,11 @@ class StabilityPolygon():
       for i in tc.indexes:
         cont = self.contacts[i]
         dist = tc.point - cont.r
-        L[:, 3*i:3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
+        off = 0
+        #Add constraint on every x_i
+        for j in range(len(self.gravity_envelope)):
+          L[:, off+3*i:off+3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
+          j += 3*len(self.contacts)
       #Filter L, tb to remove zero lines
       tb = np.vstack([tc.limit, tc.limit])
       zero_mask = np.all(L == 0, axis=1)
