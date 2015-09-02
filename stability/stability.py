@@ -324,6 +324,16 @@ class StabilityPolygon():
       return True
     return False
 
+  def sample(self, p):
+    self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
+    if self.sol['status'] == 'optimal':
+      vec = np.array(self.sol['x'])
+      self.com = p
+      nrForces = len(self.contacts)*len(self.gravity_envelope)
+      self.forces = vec.reshape((nrForces, 3)).T
+      return True
+    return False
+
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
@@ -434,6 +444,57 @@ class StabilityPolygon():
     sol = solvers.socp(c, Gl=matrix(gl), hl=matrix(hl),
                        Gq=map(matrix, G), hq=map(matrix, H),
                        A=A, b=matrix(T))
+    return sol
+
+  #Check if one point is stable or not. Based on block_socp
+  #TODO: refactor away this, block_socp and regular socp
+  def check_point(self, p, A1, B_s, u_s):
+    dims = {
+        'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
+            # No com cone
+        'q': [4]*len(self.contacts)*len(self.gravity_envelope),
+        's': []  # No sd cones
+            }
+
+    size_cones = self.size_x()*4 // 3
+
+    #Min x ~ who cares, we just want to know if there is a solution
+    c = matrix(np.ones((self.size_x(), 1)))
+
+    A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
+    A2 = np.vstack([self.computeA2(self.gravity+e)
+                    for e in self.gravity_envelope])
+
+    T = np.vstack([self.computeT(self.gravity+e)
+                   for e in self.gravity_envelope]) - A2.dot(p)
+
+    A = matrix(A1_diag)
+
+    g_s = []
+    h_s = []
+
+    if self.L_s:
+      g_s.append(np.vstack(self.L_s))
+      h_s.append(np.vstack(self.tb_s))
+
+    g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
+    g_s.append(g_force)
+
+    h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
+
+    #B = diag{[u_i b_i.T].T}
+    blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]*len(self.gravity_envelope)
+    block = block_diag(*blocks)
+
+    g_s.append(block)
+    h_cones = np.zeros((size_cones, 1))
+    h_s.append(h_cones)
+
+    g = np.vstack(g_s)
+    h = np.vstack(h_s)
+
+    sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
+                         A=A, b=matrix(T), dims=dims)
     return sol
 
   def init_algo(self):
