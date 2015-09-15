@@ -3,6 +3,8 @@ from cvxopt import matrix, solvers
 import cdd
 import shapely.geometry as geom
 
+from fractions import Fraction
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
@@ -19,6 +21,9 @@ from qhull_sch import convexVolume, convexHull
 
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
+
+import pyparma
+from pyparma.utils import fractionize, floatize
 
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
@@ -75,8 +80,13 @@ def scipy_convexify_polyhedron(hrep):
   ch = ConvexHull(points)
   return ch.points
 
-def scipy_triangulate_polyhedron(hrep):
+def scipy_cdd_triangulate_polyhedron(hrep):
   points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
+  ch = ConvexHull(points)
+  return [c for c in ch.points.T], ch.simplices
+
+def scipy_parma_triangulate_polyhedron(poly):
+  points = floatize(poly.vrep()[:, 1:])
   ch = ConvexHull(points)
   return [c for c in ch.points.T], ch.simplices
 
@@ -103,10 +113,15 @@ def tetrahedron_from_facet(facet, center):
   points.append(center)
   return Tetrahedron_3(*points)
 
-def volume_convex(hrep):
-  return scipy_volume_convex(hrep)
+def scipy_parma_volume_convex(poly):
+  points = floatize(poly.vrep()[:, 1:])
+  try:
+    ch = ConvexHull(points)
+  except QhullError:
+    return 0
+  return ch.volume
 
-def scipy_volume_convex(hrep):
+def scipy_cdd_volume_convex(hrep):
   try:
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
   except RuntimeError:
@@ -543,7 +558,23 @@ class StabilityPolygon():
            "Terminated in {} state".format(self.sol['status'])]
       raise SteppingException('\n'.join(m))
 
-  def build_polys(self):
+  def build_parma_polys(self):
+    if self.outer is None:
+      A = np.vstack(self.directions)
+      b = np.vstack(self.offsets)
+      self.outer = pyparma.Polyhedron(hrep=fractionize(np.hstack([b, -A])))
+    else:
+      self.outer.add_ineq(fractionize(np.hstack((self.offsets[-1],
+                                                 -self.directions[-1]))))
+    if self.inner is None:
+      A = np.vstack([p.T for p in self.points])
+      b = np.ones((len(self.points), 1))
+      self.inner = pyparma.Polyhedron(vrep=np.hstack([b, fractionize(A)]))
+    else:
+      self.inner.add_generator(np.hstack(([[1]],
+                                          fractionize(self.points[-1].T))))
+
+  def build_cdd_polys(self):
     if self.outer is None:
       A = np.vstack(self.directions)
       b = np.vstack(self.offsets)
@@ -562,8 +593,41 @@ class StabilityPolygon():
       self.inner.extend(np.hstack(([[1]], self.points[-1].T)))
       self.inner.canonicalize()
 
-  def find_direction(self, plot=False):
-    self.build_polys()
+  def find_parma_direction(self, plot=False):
+    self.inner, self.outer = None, None
+    self.build_cdd_polys()
+    inner = self.inner.copy()
+    self.inner, self.outer = None, None
+    self.build_parma_polys()
+
+    mat = cdd.Matrix(np.array(inner), number_type='fraction')
+    mat.rep_type = cdd.RepType.GENERATOR
+
+    volumes = []
+
+    ineq = self.inner.hrep()
+
+    for line in ineq:
+      #hrep = np.vstack([np.array(ineq, copy=True),
+      #                  -line])
+      #A_e = pyparma.Polyhedron(hrep=hrep)
+
+      A_e = self.outer.copy()
+      A_e.add_ineq(-line)
+
+      if plot:
+        self.reset_fig()
+        self.plot_polyhedrons()
+        self.plot_polyhedron(A_e, 'm', 0.5)
+        self.show()
+
+      volumes.append(self.volume_convex(A_e))
+
+    i, a = max(enumerate(volumes), key=lambda x: x[1])
+    return floatize(-ineq[i, 1:])
+
+  def find_cdd_direction(self, plot=False):
+    self.build_cdd_polys()
 
     volumes = []
 
@@ -583,7 +647,7 @@ class StabilityPolygon():
         self.plot_polyhedron(A_e, 'm', 0.5)
         self.show()
 
-      volumes.append(volume_convex(A_e))
+      volumes.append(self.volume_convex(A_e))
 
     i, a = max(enumerate(volumes), key=lambda x: x[1])
     return -ineq[i, 1:]
@@ -610,7 +674,22 @@ class StabilityPolygon():
     c = float(343)/float(243)
     return nr_edges_init*(np.sqrt(c*error_init/prec) - 1)
 
+  def select_solver(self, solver):
+    if solver == 'cdd':
+      self.volume_convex = scipy_cdd_volume_convex
+      self.build_polys = self.build_cdd_polys
+      self.find_direction = self.find_cdd_direction
+      self.triangulate_polyhedron = scipy_cdd_triangulate_polyhedron
+    elif solver == 'parma':
+      self.volume_convex = scipy_parma_volume_convex
+      self.build_polys = self.build_parma_polys
+      self.find_direction = self.find_parma_direction
+      self.triangulate_polyhedron = scipy_parma_triangulate_polyhedron
+    else:
+      raise ValueError("Only 'cdd' or 'parma' solvers are available")
+
   def compute(self, mode, maxIter=100, epsilon=1e-4,
+              solver='cdd',
               plot_init=False,
               plot_step=False,
               plot_direction=False,
@@ -618,20 +697,20 @@ class StabilityPolygon():
               plot_final=True,
               fname_polys=None):
 
+    self.select_solver(solver)
     self.make_problem()
     self.init_algo()
     self.build_polys()
-
     failure = False
 
     if plot_init:
       self.plot()
       self.show()
 
-    error = volume_convex(self.outer) - volume_convex(self.inner)
+    error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
 
     if(mode is Mode.precision):
-      iterBound = self.iterBound(3, error, epsilon)
+      iterBound = self.iterBound(len(self.points), error, epsilon)
       print "Reaching {} should take {} iterations".format(epsilon,
                                                            np.ceil(iterBound))
       stop_condition = lambda: error > epsilon
@@ -654,7 +733,7 @@ class StabilityPolygon():
         print e.message
         failure = True
         break
-      error = volume_convex(self.outer) - volume_convex(self.inner)
+      error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
       print error
       nrSteps += 1
 
@@ -736,7 +815,7 @@ class StabilityPolygon():
     self.plot_polyhedron(self.outer, 'blue', 0.1)
 
   def plot_polyhedron(self, poly, c, a):
-    coords, tri = scipy_triangulate_polyhedron(poly)
+    coords, tri = self.triangulate_polyhedron(poly)
     if len(coords) == 3:
       self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a)
     else:
