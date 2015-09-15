@@ -4,6 +4,8 @@ import cdd
 import shapely.geometry as geom
 import sys
 
+import hashlib
+
 from fractions import Fraction
 
 import matplotlib.pyplot as plt
@@ -216,6 +218,9 @@ class StabilityPolygon():
     self.gravity = np.array([[0, 0, gravity]]).T
     self.dimension = dimension
 
+    self.volume_dic = {}
+    self.vrep_dic = {}
+
     if dimension == 3:
       self.gravity_envelope = [
           np.array([[-0.15, 0, 0]]).T,
@@ -267,6 +272,8 @@ class StabilityPolygon():
   def reset(self):
     self.contacts = []
     self.torque_constraints = []
+    self.volume_dic = {}
+    self.vrep_dic = {}
 
   def make_problem(self):
     A_s = []
@@ -559,6 +566,24 @@ class StabilityPolygon():
            "Terminated in {} state".format(self.sol['status'])]
       raise SteppingException('\n'.join(m))
 
+    self.invalidate_vreps()
+
+  def invalidate_vreps(self):
+    offset = self.offsets[-1]
+    direction = self.directions[-1]
+    keys = []
+    for key, vrep in self.vrep_dic.iteritems():
+      valid = all(((offset+direction.dot(p[1:].T)) > 0 for p in vrep))
+      if not valid:
+        keys.append(key)
+
+    #print "Invalidating {} keys out of {}".format(len(keys),
+    #                                              len(self.vrep_dic.keys()))
+    #Keys should always be present in both dictionaries !
+    for key in keys:
+      del self.volume_dic[key]
+      del self.vrep_dic[key]
+
   def build_parma_polys(self):
     if self.outer is None:
       A = np.vstack(self.directions)
@@ -609,20 +634,22 @@ class StabilityPolygon():
     ineq = self.inner.hrep()
 
     for line in ineq:
-      #hrep = np.vstack([np.array(ineq, copy=True),
-      #                  -line])
-      #A_e = pyparma.Polyhedron(hrep=hrep)
-
-      A_e = self.outer.copy()
-      A_e.add_ineq(-line)
+      key = hashlib.sha1(line).hexdigest()
+      if key in self.volume_dic:
+        volumes.append(self.volume_dic[key])
+      else:
+        A_e = self.outer.copy()
+        A_e.add_ineq(-line)
+        vol = self.volume_convex(A_e)
+        self.volume_dic[key] = vol
+        volumes.append(vol)
+        self.vrep_dic[key] = A_e.vrep()
 
       if plot:
         self.reset_fig()
         self.plot_polyhedrons()
         self.plot_polyhedron(A_e, 'm', 0.5)
         self.show()
-
-      volumes.append(self.volume_convex(A_e))
 
     i, a = max(enumerate(volumes), key=lambda x: x[1])
     return floatize(-ineq[i, 1:])
