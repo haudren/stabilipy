@@ -2,6 +2,7 @@ import numpy as np
 from cvxopt import matrix, solvers
 import cdd
 import shapely.geometry as geom
+import sys
 
 from fractions import Fraction
 
@@ -690,6 +691,7 @@ class StabilityPolygon():
 
   def compute(self, mode, maxIter=100, epsilon=1e-4,
               solver='cdd',
+              plot_error=False,
               plot_init=False,
               plot_step=False,
               plot_direction=False,
@@ -708,6 +710,12 @@ class StabilityPolygon():
       self.show()
 
     error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
+    nrSteps = 0
+
+    if plot_error:
+      self.fig_error = plt.figure()
+      self.ax_error = self.fig_error.add_subplot(111)
+      self.line_error, = self.ax_error.plot([nrSteps], [error], 'r-')
 
     if(mode is Mode.precision):
       iterBound = self.iterBound(len(self.points), error, epsilon)
@@ -723,7 +731,6 @@ class StabilityPolygon():
     else:
       raise ValueError("Unknown mode, please use a value supplied in enum")
 
-    nrSteps = 0
     while(stop_condition()):
       try:
         self.next_edge(plot_step, plot_direction, record_anim,
@@ -735,7 +742,18 @@ class StabilityPolygon():
         break
       error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
       print error
+      sys.stdout.flush()
+
       nrSteps += 1
+      if plot_error:
+        self.line_error.set_xdata(np.append(self.line_error.get_xdata(),
+                                            nrSteps))
+        self.line_error.set_ydata(np.append(self.line_error.get_ydata(),
+                                            error))
+        self.ax_error.relim()
+        self.ax_error.autoscale_view()
+        self.fig_error.canvas.draw()
+        plt.pause(0.01)
 
     print "NrIter : {} | Remainder : {}".format(nrSteps, error)
 
