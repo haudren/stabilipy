@@ -620,15 +620,7 @@ class StabilityPolygon():
       self.inner.canonicalize()
 
   def find_parma_direction(self, plot=False):
-    self.inner, self.outer = None, None
-    self.build_cdd_polys()
-    inner = self.inner.copy()
-    self.inner, self.outer = None, None
     self.build_parma_polys()
-
-    mat = cdd.Matrix(np.array(inner), number_type='fraction')
-    mat.rep_type = cdd.RepType.GENERATOR
-
     volumes = []
 
     ineq = self.inner.hrep()
