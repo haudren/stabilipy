@@ -226,12 +226,13 @@ class StabilityPolygon():
     self.vrep_dic = {}
 
     if dimension == 3:
-      self.gravity_envelope = [
-          np.array([[-0.15, 0, 0]]).T,
-          np.array([[0.15, 0, 0]]).T,
-          np.array([[0, 0.15, 0]]).T,
-          np.array([[0, -0.15, 0]]).T
-                              ]
+      shape = [
+                  np.array([[-1., 0, 0]]).T,
+                  np.array([[1., 0, 0]]).T,
+                  np.array([[0, 1., 0]]).T,
+                  np.array([[0, -1., 0]]).T
+              ]
+      self.gravity_envelope = [1.45*s for s in shape]
       self.proj = np.eye(3)
 
     elif dimension == 2:
@@ -242,8 +243,8 @@ class StabilityPolygon():
     else:
       raise ValueError("Dimension can only be 2 or 3")
 
-    self.radius = 2.0
-    self.force_lim = 100.0
+    self.radius = 2.
+    self.force_lim = 1.0
     self.inner = []
     self.outer = []
 
