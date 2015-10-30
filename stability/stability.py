@@ -170,6 +170,9 @@ def cgal_volume_convex(hrep):
 TorqueConstraint = namedtuple('TorqueConstraint',
                               ['indexes', 'point', 'limit'])
 
+ForceConstraint = namedtuple('ForceConstraint',
+                             ['indexes', 'limit'])
+
 @unique
 class Mode(Enum):
   precision = 1
@@ -214,6 +217,7 @@ class StabilityPolygon():
     solvers.options['show_progress'] = False
     self.contacts = []
     self.torque_constraints = []
+    self.force_constraints = []
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
     self.dimension = dimension
@@ -269,6 +273,14 @@ class StabilityPolygon():
 
     self.torque_constraints.append(TorqueConstraint(indexes, point, limit))
 
+  def addForceConstraint(self, contacts, limit):
+    """Limit the sum of forces applied on contacts"""
+    indexes = []
+    for c in contacts:
+      indexes.append(self.contacts.index(c))
+
+    self.force_constraints.append(ForceConstraint(indexes, limit))
+
   def reset(self):
     self.contacts = []
     self.torque_constraints = []
@@ -293,7 +305,7 @@ class StabilityPolygon():
         #Add constraint on every x_i
         for j in range(len(self.gravity_envelope)):
           L[:, off+3*i:off+3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
-          j += 3*len(self.contacts)
+          off += 3*len(self.contacts)
       #Filter L, tb to remove zero lines
       tb = np.vstack([tc.limit, tc.limit])
       zero_mask = np.all(L == 0, axis=1)
@@ -362,7 +374,7 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [self.size_z()+1]+[4]*len(self.contacts)*len(self.gravity_envelope),
+        'q': [self.size_z()+1]+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
         's': []  # No sd cones
             }
 
@@ -411,6 +423,21 @@ class StabilityPolygon():
     g_s.append(g_contacts)
     h_cones = np.zeros((size_cones, 1))
     h_s.append(h_cones)
+
+    #Force constraint ||\sum_i f_i || < lim
+    for fc in self.force_constraints:
+      force_sum = np.zeros((3, self.nrVars()))
+      for index in fc.indexes:
+        i = 3*index
+        off = 0
+        for j in range(len(self.gravity_envelope)):
+          force_sum[:, off+i:off+i+3] = np.eye(3)
+          off += 3*len(self.contacts)
+      g_fc = np.vstack([np.zeros((1, self.nrVars())), force_sum])
+      h_fc = np.zeros((4, 1))
+      h_fc[0, 0] = fc.limit*self.mass*9.81
+      g_s.append(g_fc)
+      h_s.append(h_fc)
 
     g = np.vstack(g_s)
     h = np.vstack(h_s)
