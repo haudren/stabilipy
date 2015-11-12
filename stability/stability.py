@@ -168,7 +168,7 @@ def cgal_volume_convex(hrep):
   return sum([abs(t.volume()) for t in tetrahedrons])
 
 TorqueConstraint = namedtuple('TorqueConstraint',
-                              ['indexes', 'point', 'limit'])
+                              ['indexes', 'point', 'ub', 'lb'])
 
 ForceConstraint = namedtuple('ForceConstraint',
                              ['indexes', 'limit'])
@@ -266,13 +266,16 @@ class StabilityPolygon():
   def addContact(self, contact):
     self.contacts.append(contact)
 
-  def addTorqueConstraint(self, contacts, point, limit):
+  def addTorqueConstraint(self, contacts, point, ub, lb=None):
     #Add a limit on torque at a point over contacts
     indexes = []
     for c in contacts:
       indexes.append(self.contacts.index(c))
 
-    self.torque_constraints.append(TorqueConstraint(indexes, point, limit))
+    if lb is None:
+      lb = -ub
+
+    self.torque_constraints.append(TorqueConstraint(indexes, point, ub, lb))
 
   def addForceConstraint(self, contacts, limit):
     """Limit the sum of forces applied on contacts"""
@@ -308,7 +311,7 @@ class StabilityPolygon():
           L[:, off+3*i:off+3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
           off += 3*len(self.contacts)
       #Filter L, tb to remove zero lines
-      tb = np.vstack([tc.limit, tc.limit])
+      tb = np.vstack([tc.ub, -tc.lb])
       zero_mask = np.all(L == 0, axis=1)
 
       L = L[~zero_mask]
