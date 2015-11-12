@@ -12,7 +12,7 @@ def main():
   mu = 1.0
   contacts = [stab.Contact(mu, p, n) for p, n in zip(pos, normals)]
 
-  poly = stab.StabilityPolygon(60)
+  poly = stab.StabilityPolygon(60, dimension=2)
   poly.contacts = contacts
 
   poly.reset_fig()
@@ -31,9 +31,15 @@ def main():
   poly.addTorqueConstraint(contacts[-2:],
                            point,
                            10*np.ones((3, 1)))
+
+  bar1 = sum([c.r for c in poly.contacts[0:4]])/4
+  bar2 = sum([c.r for c in poly.contacts[4:8]])/4
+  poly.addDistConstraint(bar1[0:2,:], 1.5)
+  poly.addDistConstraint(bar2[0:2,:], 1.5)
+
   poly.make_problem()
 
-  poly.compute(stab.Mode.best, maxIter=100, epsilon=2e-1,
+  poly.compute(stab.Mode.best, maxIter=100, epsilon=2e-3,
                plot_init=True, plot_final=True)
 
   return poly

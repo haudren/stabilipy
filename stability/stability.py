@@ -173,6 +173,9 @@ TorqueConstraint = namedtuple('TorqueConstraint',
 ForceConstraint = namedtuple('ForceConstraint',
                              ['indexes', 'limit'])
 
+DistConstraint = namedtuple('DistConstraint',
+                            ['origin', 'radius'])
+
 @unique
 class Mode(Enum):
   precision = 1
@@ -218,6 +221,7 @@ class StabilityPolygon():
     self.contacts = []
     self.torque_constraints = []
     self.force_constraints = []
+    self.dist_constraints = []
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
     self.dimension = dimension
@@ -285,9 +289,15 @@ class StabilityPolygon():
 
     self.force_constraints.append(ForceConstraint(indexes, limit))
 
+  def addDistConstraint(self, origin, radius):
+    """Limit the CoM to || CoM - origin || < radius"""
+    self.dist_constraints.append(DistConstraint(origin, radius))
+
   def reset(self):
     self.contacts = []
     self.torque_constraints = []
+    self.force_constraints = []
+    self.dist_constraints = []
     self.volume_dic = {}
     self.vrep_dic = {}
 
@@ -297,6 +307,8 @@ class StabilityPolygon():
     u_s = []
     L_s = []
     tb_s = []
+    S_s = []
+    r_s = []
 
     self._size_tb = 0
 
@@ -322,6 +334,16 @@ class StabilityPolygon():
 
       self._size_tb += L.shape[0]
 
+    for dc in self.dist_constraints:
+      S = np.zeros((self.size_z()+1, self.nrVars()))
+      S[1:, -self.size_z():] = -np.eye(self.size_z())
+      r = np.zeros((self.size_z()+1, 1))
+      r[0] = dc.radius
+      r[1:] = dc.origin
+
+      S_s.append(S)
+      r_s.append(r)
+
     for c in self.contacts:
       A_s.append(np.vstack([np.eye(3), cross_m(c.r)]))
       B_s.append(np.eye(3) - np.dot(c.n, c.n.T))
@@ -337,6 +359,9 @@ class StabilityPolygon():
 
     self.L_s = L_s
     self.tb_s = tb_s
+
+    self.S_s = S_s
+    self.r_s = r_s
 
   def computeA2(self, gravity):
     return np.vstack([np.zeros((3, self.size_z())),
@@ -378,10 +403,9 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [self.size_z()+1]+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
+        'q': [self.size_z()+1]*(1+len(self.dist_constraints))+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
         's': []  # No sd cones
             }
-
     size_cones = self.size_x()*4 // 3
 
     #Max a^T z ~ min -a^T z
@@ -418,6 +442,10 @@ class StabilityPolygon():
     h_com_cone = np.zeros((size_com_cone, 1))
     h_com_cone[0, 0] = self.radius
     h_s.append(h_com_cone)
+
+    #These are additional dist constraints
+    g_s.append(np.vstack(self.S_s))
+    h_s.append(np.vstack(self.r_s))
 
     #B = diag{[u_i b_i.T].T}
     blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]*len(self.gravity_envelope)
@@ -846,7 +874,10 @@ class StabilityPolygon():
     self.plot_contacts()
     self.plot_solution()
     self.plot_polyhedrons()
-    self.plot_sphere(self.radius, 'b')
+    self.plot_sphere(np.zeros((3, 1)), self.radius, 'b')
+
+    for dc in self.dist_constraints:
+      self.plot_sphere(dc.origin, dc.radius, 'b')
 
   def show(self):
     plt.show()
@@ -890,17 +921,17 @@ class StabilityPolygon():
       self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
       self.ax.triplot(*coords, triangles=tri, color=c, alpha=a)
 
-  def plot_sphere(self, radius, color):
+  def plot_sphere(self, origin, radius, color):
     if self.size_z() == 3:
       u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
       r = radius
-      x = r*np.cos(u)*np.sin(v)
-      y = r*np.sin(u)*np.sin(v)
-      z = r*np.cos(v)
+      x = r*np.cos(u)*np.sin(v) + origin[0]
+      y = r*np.sin(u)*np.sin(v) + origin[1]
+      z = r*np.cos(v) + origin[2]
       self.ax.plot_wireframe(x, y, z, color=color, alpha=0.2)
     else:
       u = np.mgrid[0:2*np.pi:40j]
       r = radius
-      x = r*np.cos(u)
-      y = r*np.sin(u)
+      x = r*np.cos(u) + origin[0]
+      y = r*np.sin(u) + origin[1]
       self.ax.plot(x, y, color=color, alpha=0.2)
