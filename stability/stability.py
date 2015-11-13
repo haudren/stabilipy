@@ -430,6 +430,9 @@ class StabilityPolygon():
       h_s.extend(self.tb_s)
 
     #Linear force constraint
+    #       <x> <z>                      <1>
+    # <x> [[ I  0] <= <x> lim*mg  2*<x> [ 1]
+    # <x> [[ -I 0]
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
     g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
 
