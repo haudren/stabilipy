@@ -213,15 +213,15 @@ class StabilityPolygon():
                radius=2., force_lim=1.):
     solvers.options['show_progress'] = False
     self.contacts = []
-    self.torque_constraints = []
-    self.force_constraints = []
-    self.dist_constraints = []
+
+    self.clearConstraints()
+    self.clearAlgo()
+
     self.mass = robotMass
     self.gravity = np.array([[0, 0, gravity]]).T
     self.dimension = dimension
-
-    self.volume_dic = {}
-    self.vrep_dic = {}
+    self.radius = radius
+    self.force_lim = force_lim
 
     if dimension == 3:
       shape = [
@@ -240,11 +240,6 @@ class StabilityPolygon():
       self.proj = np.array([[1, 0, 0], [0, 1, 0]])
     else:
       raise ValueError("Dimension can only be 2 or 3")
-
-    self.radius = radius
-    self.force_lim = force_lim
-    self.inner = []
-    self.outer = []
 
   def nrVars(self):
     return self.size_x() + self.size_z()
@@ -289,11 +284,24 @@ class StabilityPolygon():
 
   def reset(self):
     self.contacts = []
+    self.clearAlgo()
+    self.clearConstraints()
+
+  def clearConstraints(self):
     self.torque_constraints = []
     self.force_constraints = []
     self.dist_constraints = []
+
+  def clearAlgo(self):
     self.volume_dic = {}
     self.vrep_dic = {}
+
+    self.directions = []
+    self.points = []
+    self.offsets = []
+
+    self.inner = None
+    self.outer = None
 
   def make_problem(self):
     A_s = []
@@ -396,7 +404,7 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
+        'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[fc.size for fc in self.force_constraints],
         's': []  # No sd cones
             }
     size_cones = self.size_x()*4 // 3
@@ -554,11 +562,7 @@ class StabilityPolygon():
     return sol
 
   def init_algo(self):
-    self.directions = []
-    self.points = []
-    self.offsets = []
-    self.inner = None
-    self.outer = None
+    self.clearAlgo()
     #Search in "random" directions
     if self.dimension == 3:
       directions = map(normalize, [np.array([[1, 0, 0]]).T,
