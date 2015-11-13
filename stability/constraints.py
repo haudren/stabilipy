@@ -67,7 +67,7 @@ class ForceConstraint(object):
 
   """Constraint to limit force applied on certain contacts"""
 
-  def __init__(self, indexes, limit, mass):
+  def __init__(self, indexes, limit):
     """Default constructor.
 
     :indexes: Indexes of the contacts on which the constraint applies
@@ -76,7 +76,6 @@ class ForceConstraint(object):
     """
     self.indexes = indexes
     self.limit = limit
-    self.mass = mass
 
     self.size = 4
     self.ctype = Constraint.Conic
@@ -91,7 +90,7 @@ class ForceConstraint(object):
         off += 3*len(poly.contacts)
     self.g = np.vstack([np.zeros((1, poly.nrVars())), force_sum])
     h_fc = np.zeros((self.size, 1))
-    h_fc[0, 0] = self.limit*self.mass*9.81
+    h_fc[0, 0] = self.limit*poly.mass*9.81
     self.h = h_fc
 
   def matrices(self):
