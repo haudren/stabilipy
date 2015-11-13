@@ -241,8 +241,8 @@ class StabilityPolygon():
     else:
       raise ValueError("Dimension can only be 2 or 3")
 
-    self.radius = 2.
-    self.force_lim = 1.0
+    self.radius = radius
+    self.force_lim = force_lim
     self.inner = []
     self.outer = []
 
@@ -416,10 +416,12 @@ class StabilityPolygon():
     g_s = []
     h_s = []
 
+    #Torque constraint
     if self.L_s:
-      g_s.append(np.vstack(self.L_s))
-      h_s.append(np.vstack(self.tb_s))
+      g_s.extend(self.L_s)
+      h_s.extend(self.tb_s)
 
+    #Linear force constraint
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
     g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
 
@@ -442,6 +444,7 @@ class StabilityPolygon():
     g_s.extend(self.F_s)
     h_s.extend(self.f_s)
 
+    #Concat everything
     g = np.vstack(g_s)
     h = np.vstack(h_s)
 
