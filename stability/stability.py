@@ -28,6 +28,8 @@ from scipy.spatial.qhull import QhullError
 import pyparma
 from pyparma.utils import fractionize, floatize
 
+from constraints import TorqueConstraint, DistConstraint, ForceConstraint
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -167,15 +169,6 @@ def cgal_volume_convex(hrep):
 
   return sum([abs(t.volume()) for t in tetrahedrons])
 
-TorqueConstraint = namedtuple('TorqueConstraint',
-                              ['indexes', 'point', 'ub', 'lb'])
-
-ForceConstraint = namedtuple('ForceConstraint',
-                             ['indexes', 'limit'])
-
-DistConstraint = namedtuple('DistConstraint',
-                            ['origin', 'radius'])
-
 @unique
 class Mode(Enum):
   precision = 1
@@ -216,7 +209,8 @@ class SteppingException(Exception):
 # Then call compute with desired precision.
 
 class StabilityPolygon():
-  def __init__(self, robotMass, dimension=3, gravity=-9.81):
+  def __init__(self, robotMass, dimension=3, gravity=-9.81,
+               radius=2., force_lim=1.):
     solvers.options['show_progress'] = False
     self.contacts = []
     self.torque_constraints = []
@@ -309,40 +303,36 @@ class StabilityPolygon():
     tb_s = []
     S_s = []
     r_s = []
+    F_s = []
+    f_s = []
+
+    #Add global dist constraint
+    #This com cone should prevent com from going to infinity : ||com|| =< max
+    self.addDistConstraint(np.zeros((self.size_z(), 1)), self.radius)
 
     self._size_tb = 0
 
-    for tc in self.torque_constraints:
-      L = np.zeros((6, self.nrVars()))
-      for i in tc.indexes:
-        cont = self.contacts[i]
-        dist = tc.point - cont.r
-        off = 0
-        #Add constraint on every x_i
-        for j in range(len(self.gravity_envelope)):
-          L[:, off+3*i:off+3*i+3] = np.vstack([cross_m(dist), -cross_m(dist)])
-          off += 3*len(self.contacts)
-      #Filter L, tb to remove zero lines
-      tb = np.vstack([tc.ub, -tc.lb])
-      zero_mask = np.all(L == 0, axis=1)
+    if self.torque_constraints:
+      for tc in self.torque_constraints:
+        tc.compute(self)
+      L_s, tb_s = zip(*[tc.matrices() for tc in self.torque_constraints])
+      self._size_tb = sum(L.shape[0] for L in L_s)
+    else:
+      L_s, tb_s = [], []
 
-      L = L[~zero_mask]
-      tb = tb[~zero_mask]
+    if self.dist_constraints:
+      for dc in self.dist_constraints:
+        dc.compute(self)
+      S_s, r_s = zip(*[dc.matrices() for dc in self.dist_constraints])
+    else:
+      S_s, r_s = [], []
 
-      L_s.append(L)
-      tb_s.append(tb)
-
-      self._size_tb += L.shape[0]
-
-    for dc in self.dist_constraints:
-      S = np.zeros((self.size_z()+1, self.nrVars()))
-      S[1:, -self.size_z():] = -np.eye(self.size_z())
-      r = np.zeros((self.size_z()+1, 1))
-      r[0] = dc.radius
-      r[1:] = dc.origin
-
-      S_s.append(S)
-      r_s.append(r)
+    if self.force_constraints:
+      for fc in self.force_constraints:
+        fc.compute(self)
+      F_s, f_s = zip(*[fc.matrices() for fc in self.force_constraints])
+    else:
+      F_s, f_s = [], []
 
     for c in self.contacts:
       A_s.append(np.vstack([np.eye(3), cross_m(c.r)]))
@@ -362,6 +352,9 @@ class StabilityPolygon():
 
     self.S_s = S_s
     self.r_s = r_s
+
+    self.F_s = F_s
+    self.f_s = f_s
 
   def computeA2(self, gravity):
     return np.vstack([np.zeros((3, self.size_z())),
@@ -403,7 +396,7 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [self.size_z()+1]*(1+len(self.dist_constraints))+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
+        'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[4]*len(self.force_constraints),
         's': []  # No sd cones
             }
     size_cones = self.size_x()*4 // 3
@@ -432,20 +425,9 @@ class StabilityPolygon():
 
     h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
-    #This com cone should prevent com from going to infinity : ||com|| =< max
-    size_com_cone = self.size_z()+1
-    com_cone = np.zeros((self.size_z()+1, self.nrVars()))
-    com_cone[1:, -self.size_z():] = -np.eye(self.size_z())
-
-    g_s.append(com_cone)
-
-    h_com_cone = np.zeros((size_com_cone, 1))
-    h_com_cone[0, 0] = self.radius
-    h_s.append(h_com_cone)
-
     #These are additional dist constraints
-    g_s.append(np.vstack(self.S_s))
-    h_s.append(np.vstack(self.r_s))
+    g_s.extend(self.S_s)
+    h_s.extend(self.r_s)
 
     #B = diag{[u_i b_i.T].T}
     blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]*len(self.gravity_envelope)
@@ -456,20 +438,9 @@ class StabilityPolygon():
     h_cones = np.zeros((size_cones, 1))
     h_s.append(h_cones)
 
-    #Force constraint ||\sum_i f_i || < lim
-    for fc in self.force_constraints:
-      force_sum = np.zeros((3, self.nrVars()))
-      for index in fc.indexes:
-        i = 3*index
-        off = 0
-        for j in range(len(self.gravity_envelope)):
-          force_sum[:, off+i:off+i+3] = np.eye(3)
-          off += 3*len(self.contacts)
-      g_fc = np.vstack([np.zeros((1, self.nrVars())), force_sum])
-      h_fc = np.zeros((4, 1))
-      h_fc[0, 0] = fc.limit*self.mass*9.81
-      g_s.append(g_fc)
-      h_s.append(h_fc)
+    #Force Constraints
+    g_s.extend(self.F_s)
+    h_s.extend(self.f_s)
 
     g = np.vstack(g_s)
     h = np.vstack(h_s)
@@ -580,7 +551,6 @@ class StabilityPolygon():
     return sol
 
   def init_algo(self):
-    self.make_problem()
     self.directions = []
     self.points = []
     self.offsets = []
@@ -874,7 +844,6 @@ class StabilityPolygon():
     self.plot_contacts()
     self.plot_solution()
     self.plot_polyhedrons()
-    self.plot_sphere(np.zeros((3, 1)), self.radius, 'b')
 
     for dc in self.dist_constraints:
       self.plot_sphere(dc.origin, dc.radius, 'b')
