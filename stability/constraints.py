@@ -104,9 +104,9 @@ class DistConstraint(object):
   def __init__(self, origin, radius):
     """Default constructor.
 
-    :origin: Origin of the circle/sphere
+    :origin: Origin of the circle/sphere. Should be (n, 1)
+    Will be clamped to first size_z() dimensions.
     :radius: Radius of the circle/sphere
-    :dimension: Should be 2 or 3 (2D/3D)
 
     """
     self.origin = origin
@@ -120,7 +120,7 @@ class DistConstraint(object):
     S[1:, -poly.size_z():] = -np.eye(poly.size_z())
     r = np.zeros((self.size, 1))
     r[0] = self.radius
-    r[1:] = self.origin
+    r[1:] = self.origin[:poly.size_z(), :]
     self.S = S
     self.r = r
 

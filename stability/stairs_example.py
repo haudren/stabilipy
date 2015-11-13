@@ -34,8 +34,8 @@ def main():
 
   bar1 = sum([c.r for c in poly.contacts[0:4]])/4
   bar2 = sum([c.r for c in poly.contacts[4:8]])/4
-  poly.addDistConstraint(bar1[0:2,:], 1.5)
-  poly.addDistConstraint(bar2[0:2,:], 1.5)
+  poly.addDistConstraint(bar1, 1.5)
+  poly.addDistConstraint(bar2, 1.5)
 
   poly.make_problem()
 
