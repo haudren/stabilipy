@@ -89,16 +89,6 @@ def scipy_convexify_polyhedron(hrep):
   ch = ConvexHull(points)
   return ch.points
 
-def scipy_cdd_triangulate_polyhedron(hrep):
-  points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-  ch = ConvexHull(points)
-  return [c for c in ch.points.T], ch.simplices
-
-def scipy_parma_triangulate_polyhedron(poly):
-  points = floatize(poly.vrep()[:, 1:])
-  ch = ConvexHull(points)
-  return [c for c in ch.points.T], ch.simplices
-
 def cgal_convexify_polyhedron(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
   #If the polygon is empty or degenerate, return 0
@@ -121,29 +111,6 @@ def tetrahedron_from_facet(facet, center):
     h = h.next()
   points.append(center)
   return Tetrahedron_3(*points)
-
-def scipy_parma_volume_convex(poly):
-  points = floatize(poly.vrep()[:, 1:])
-  try:
-    ch = ConvexHull(points)
-  except QhullError:
-    return 0
-  return ch.volume
-
-def scipy_cdd_volume_convex(hrep):
-  try:
-    points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-  except RuntimeError:
-    return 0
-
-  if points.shape[0] < points.shape[1]+1:
-    return 0
-
-  try:
-    ch = ConvexHull(points)
-  except QhullError:
-    return 0
-  return ch.volume
 
 def qhull_volume_convex(hrep):
   gen = np.array(cdd.Polyhedron(hrep).get_generators())
@@ -626,94 +593,6 @@ class StabilityPolygon():
     for key in keys:
       del self.volume_dic[key]
       del self.vrep_dic[key]
-
-  def build_parma_polys(self):
-    if self.outer is None:
-      A = np.vstack(self.directions)
-      b = np.vstack(self.offsets)
-      self.outer = pyparma.Polyhedron(hrep=fractionize(np.hstack([b, -A])))
-    else:
-      self.outer.add_ineq(fractionize(np.hstack((self.offsets[-1],
-                                                 -self.directions[-1]))))
-    if self.inner is None:
-      A = np.vstack([p.T for p in self.points])
-      b = np.ones((len(self.points), 1))
-      self.inner = pyparma.Polyhedron(vrep=np.hstack([b, fractionize(A)]))
-    else:
-      self.inner.add_generator(np.hstack(([[1]],
-                                          fractionize(self.points[-1].T))))
-
-  def build_cdd_polys(self):
-    if self.outer is None:
-      A = np.vstack(self.directions)
-      b = np.vstack(self.offsets)
-      self.outer = cdd.Matrix(np.hstack([b, -A]))
-      self.outer.rep_type = cdd.RepType.INEQUALITY
-    else:
-      self.outer.extend(np.hstack((self.offsets[-1], -self.directions[-1])))
-      self.outer.canonicalize()
-
-    if self.inner is None:
-      A = np.vstack([p.T for p in self.points])
-      b = np.ones((len(self.points), 1))
-      self.inner = cdd.Matrix(np.hstack((b, A)))
-      self.inner.rep_type = cdd.RepType.GENERATOR
-    else:
-      self.inner.extend(np.hstack(([[1]], self.points[-1].T)))
-      self.inner.canonicalize()
-
-  def find_parma_direction(self, plot=False):
-    self.build_parma_polys()
-    volumes = []
-
-    ineq = self.inner.hrep()
-
-    for line in ineq:
-      key = hashlib.sha1(line).hexdigest()
-      if key in self.volume_dic:
-        volumes.append(self.volume_dic[key])
-      else:
-        A_e = self.outer.copy()
-        A_e.add_ineq(-line)
-        vol = self.volume_convex(A_e)
-        self.volume_dic[key] = vol
-        volumes.append(vol)
-        self.vrep_dic[key] = A_e.vrep()
-
-      if plot:
-        self.reset_fig()
-        self.plot_polyhedrons()
-        self.plot_polyhedron(A_e, 'm', 0.5)
-        self.show()
-
-    i, a = max(enumerate(volumes), key=lambda x: x[1])
-    return floatize(-ineq[i, 1:])
-
-  def find_cdd_direction(self, plot=False):
-    self.build_cdd_polys()
-
-    volumes = []
-
-    try:
-      ineq = np.array(cdd.Polyhedron(self.inner).get_inequalities())
-    except RuntimeError:
-      raise SteppingException('Numerical inconsistency found')
-
-    for line in ineq:
-      A_e = self.outer.copy()
-      A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
-      A_e.canonicalize()
-
-      if plot:
-        self.reset_fig()
-        self.plot_polyhedrons()
-        self.plot_polyhedron(A_e, 'm', 0.5)
-        self.show()
-
-      volumes.append(self.volume_convex(A_e))
-
-    i, a = max(enumerate(volumes), key=lambda x: x[1])
-    return -ineq[i, 1:]
 
   def next_edge(self, plot=False, plot_direction=False,
                 record=False, fname_poly=False, number=0):
