@@ -30,6 +30,10 @@ from pyparma.utils import fractionize, floatize
 
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint
 
+from backends import CDDBackend, ParmaBackend, PlainBackend
+
+from functools import partial
+
 def cross_m(vec):
   return np.array([[0, -vec.item(2), vec.item(1)],
                    [vec.item(2), 0, -vec.item(0)],
@@ -735,17 +739,17 @@ class StabilityPolygon():
 
   def select_solver(self, solver):
     if solver == 'cdd':
-      self.volume_convex = scipy_cdd_volume_convex
-      self.build_polys = self.build_cdd_polys
-      self.find_direction = self.find_cdd_direction
-      self.triangulate_polyhedron = scipy_cdd_triangulate_polyhedron
+      self.backend = CDDBackend('scipy')
     elif solver == 'parma':
-      self.volume_convex = scipy_parma_volume_convex
-      self.build_polys = self.build_parma_polys
-      self.find_direction = self.find_parma_direction
-      self.triangulate_polyhedron = scipy_parma_triangulate_polyhedron
+      self.backend = ParmaBackend('scipy')
+    elif solver == 'plain':
+      self.backend = PlainBackend('scipy')
     else:
       raise ValueError("Only 'cdd' or 'parma' solvers are available")
+    self.volume_convex = self.backend.volume_convex
+    self.build_polys = partial(self.backend.build_polys, self)
+    self.find_direction = partial(self.backend.find_direction, self)
+    self.triangulate_polyhedron = self.backend.scipy_triangulate_polyhedron
 
   def compute(self, mode, maxIter=100, epsilon=1e-4,
               solver='cdd',
