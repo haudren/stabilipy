@@ -4,16 +4,11 @@ import cdd
 import shapely.geometry as geom
 import sys
 
-import hashlib
-
-from fractions import Fraction
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from scipy.linalg import block_diag
 
-from collections import namedtuple
 from enum import Enum, unique
 
 from CGAL.CGAL_Polyhedron_3 import Polyhedron_3
@@ -23,10 +18,6 @@ from CGAL.CGAL_Convex_hull_3 import convex_hull_3
 from qhull_sch import convexVolume, convexHull
 
 from scipy.spatial import ConvexHull
-from scipy.spatial.qhull import QhullError
-
-import pyparma
-from pyparma.utils import fractionize, floatize
 
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint
 
