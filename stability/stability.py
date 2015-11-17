@@ -613,6 +613,8 @@ class StabilityPolygon():
     elif solver == 'parma':
       self.backend = ParmaBackend('scipy')
     elif solver == 'plain':
+      if self.dimension != 2:
+        raise ValueError("The plain backend can only be used in 2D")
       self.backend = PlainBackend('scipy')
     else:
       raise ValueError("Only 'cdd' or 'parma' solvers are available")
