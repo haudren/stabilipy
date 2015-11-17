@@ -696,12 +696,20 @@ class StabilityPolygon():
       self.show()
 
   def polygon(self, centroid=None):
-    gen = np.array(cdd.Polyhedron(self.inner).get_generators())
+    if isinstance(self.backend, CDDBackend):
+      gen = np.array(cdd.Polyhedron(self.inner).get_generators())[:, 1:]
+    elif isinstance(self.backend, PlainBackend):
+      gen = self.inner.vertices
+    elif isinstance(self.backend, ParmaBackend):
+      gen = self.inner.vrep()[:, 1:]
+    else:
+      raise NotImplemented("No polygon method defined for this backend")
+
     p = np.vstack([gen, gen[0, :]])
     if centroid is None:
-      x, y = p[:, 1], p[:, 2]
+      x, y = p[:, 0], p[:, 1]
     else:
-      x, y = p[:, 1] + centroid.item(0), p[:, 2] + centroid.item(1)
+      x, y = p[:, 0] + centroid.item(0), p[:, 1] + centroid.item(1)
     return geom.Polygon(zip(x, y)).convex_hull
 
   def polyhedron(self):
