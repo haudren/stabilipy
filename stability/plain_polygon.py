@@ -27,10 +27,15 @@ class DoublePolygon(object):
     self.correspondences = [None]*self.inner.vertices.shape[0]
 
     for i, v in enumerate(self.inner.vertices):
+      dists = []
       for j, e in enumerate(self.outer.edges):
         ineq = self.outer.inequalities[e[0], :]
-        if abs(ineq[0] + v.dot(ineq[1:])) < 1e-7:
-          self.correspondences[i] = j
+        dist = abs(ineq[0] + v.dot(ineq[1:]))
+        dists.append((j, dist))
+
+      j_min, dist = min(dists, key=lambda x: x[1])
+      assert dist < 1e-7, "No inequality matches this vertex : {}".format(v)
+      self.correspondences[i] = j_min
 
     print self.correspondences
     assert(all([c is not None for c in self.correspondences]))
