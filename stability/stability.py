@@ -21,6 +21,9 @@ from utils import cross_m, normalize
 
 @unique
 class Mode(Enum):
+
+  """Enum that shows the three modes of functionment."""
+
   precision = 1
   iteration = 2
   best = 3
@@ -64,10 +67,22 @@ class StabilityPolygon():
   """Algorithm to compute stability polygon according to
   Bretl et al. \"Testing static equilibrium of legged robots\".
   You need to first set some contacts and a robot mass
-  Then call compute with desired precision."""
+  Then call compute with desired precision.
+  In 2D, computes a static stability polygon without discretizing
+  cones. In 3D, computes a robust static stability polyhedron."""
 
   def __init__(self, robotMass, dimension=3, gravity=-9.81,
                radius=2., force_lim=1.):
+    """The default constructor to build a polygon/polyhedron.
+
+    :param robotMass: Mass of the robot
+    :param dimension: Number of dimensions.
+    :param gravity: Intensity of gravity given along upwards z-axis.
+    :param radius: Radius of the CoM limitation constraint.
+    :param force_lim: Maximum force, expressed as a factor of the robot's weight.
+    :type dimension: 2,3
+    :type gravity: double
+    """
     solvers.options['show_progress'] = False
     self.contacts = []
 
@@ -117,7 +132,7 @@ class StabilityPolygon():
     self.contacts.append(contact)
 
   def addTorqueConstraint(self, contacts, point, ub, lb=None):
-    #Add a limit on torque at a point over contacts
+    """Add a limit on torque at a point over a set of contacts"""
     indexes = []
     for c in contacts:
       indexes.append(self.contacts.index(c))
@@ -144,17 +159,20 @@ class StabilityPolygon():
     self.cube_constraints.append(CubeConstraint(origin, length))
 
   def reset(self):
+    """Remove all contacts, constraints and resets inner state"""
     self.contacts = []
     self.clearAlgo()
     self.clearConstraints()
 
   def clearConstraints(self):
+    """Remove all constraints"""
     self.torque_constraints = []
     self.force_constraints = []
     self.dist_constraints = []
     self.cube_constraints = []
 
   def clearAlgo(self):
+    """Resets internal state"""
     self.volume_dic = {}
     self.vrep_dic = {}
 
@@ -166,6 +184,12 @@ class StabilityPolygon():
     self.outer = None
 
   def make_problem(self):
+    """Compute all matrices necessary to solving the problems. Only needs to be
+    called once, because the problem shape never changes. This adds global dist
+    constraint that should prevent CoM from going to infinity : ||com|| =< max.
+    However, make sure you remove it between calls to compute or to set it to
+    None when creating the polygon."""
+
     A_s = []
     B_s = []
     C_s = []
@@ -178,8 +202,6 @@ class StabilityPolygon():
     f_s = []
     d_s = []
 
-    #Add global dist constraint
-    #This com cone should prevent com from going to infinity : ||com|| =< max
     self.addDistConstraint(np.zeros((self.size_z(), 1)), self.radius)
 
     self._size_tb = 0
@@ -549,6 +571,25 @@ class StabilityPolygon():
               record_anim=False,
               plot_final=True,
               fname_polys=None):
+    """Compute the polygon/polyhedron at a given precision or for a number of
+    iterations or at best.
+
+    :param mode: Stopping criterion.
+    :param maxIter: Maximum number of iterations.
+    :param epsilon: Precision target.
+    :param solver: Backend that will be used.
+    :param plot_error: Make a running plot of the error during computation.
+    :param plot_init: Plot the initial state of the algorithm.
+    :param plot_step: Plot the state of the algorithm at each iteration.
+    :param plot_direction: Plot the direction found for the next iteration.
+    :param record_anim: Record all steps as images in files.
+    :param plot_final: Plot the final polygon/polyhedron.
+    :param fname_polys: Record successive iterations as text files.
+    :type mode: stability.Mode
+    :type maxIter: int
+    :type precision: double
+    :type solver: stability.backends
+    """
 
     self.select_solver(solver)
     self.make_problem()
@@ -613,6 +654,8 @@ class StabilityPolygon():
       self.show()
 
   def polygon(self, centroid=None):
+    """Return the inner approximation as a shapely polygon. Only valid in 2D"""
+    assert(self.dimension == 2)
     if isinstance(self.backend, CDDBackend):
       gen = np.array(cdd.Polyhedron(self.inner).get_generators())[:, 1:]
     elif isinstance(self.backend, PlainBackend):
@@ -630,6 +673,7 @@ class StabilityPolygon():
     return geom.Polygon(zip(x, y)).convex_hull
 
   def polyhedron(self):
+    """Return the inner polyhedron as a set of points"""
     p = convexify_polyhedron(self.inner)
     return p
 
