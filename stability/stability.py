@@ -19,6 +19,8 @@ from functools import partial
 
 from utils import cross_m, normalize
 
+from geomengines import convexify_polyhedron
+
 @unique
 class Mode(Enum):
 
@@ -202,7 +204,8 @@ class StabilityPolygon():
     f_s = []
     d_s = []
 
-    self.addDistConstraint(np.zeros((self.size_z(), 1)), self.radius)
+    if self.radius is not None:
+      self.addDistConstraint(np.zeros((self.size_z(), 1)), self.radius)
 
     self._size_tb = 0
 
