@@ -46,10 +46,10 @@ def main():
   mu = 0.5
   contacts = [stab.Contact(mu, p, n) for p, n in zip(pos, normals)]
 
-  poly = stab.StabilityPolygon(60)
+  poly = stab.StabilityPolygon(60, dimension=2)
   poly.contacts = contacts
 
-  poly.compute(stab.Mode.precision, epsilon=2e-3,
-               record_anim=True, plot_final=False)
+  poly.compute(stab.Mode.iteration, epsilon=2e-3, maxIter=10, solver='plain',
+               record_anim=False, plot_step=True, plot_final=False)
 
 main()
