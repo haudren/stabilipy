@@ -18,10 +18,10 @@ class TorqueConstraint(object):
   def __init__(self, indexes, point, ub, lb=None):
     """Default constructor.
 
-    :indexes: Indexes of the contacts on which the constraint applies
-    :point: Point where the torques are computed (3,1) array
-    :ub: Upper bound (3,1) array
-    :lb: Lower bound, can be None (3,1) array
+    :param indexes: Indexes of the contacts on which the constraint applies
+    :param point: Point where the torques are computed (3,1) array
+    :param ub: Upper bound (3,1) array
+    :param lb: Lower bound, can be None (3,1) array
 
     """
     self.indexes = indexes
@@ -66,8 +66,8 @@ class ForceConstraint(object):
   def __init__(self, indexes, limit):
     """Default constructor.
 
-    :indexes: Indexes of the contacts on which the constraint applies
-    :limit: Maximum force, expressed as percentage of robot weight
+    :param indexes: Indexes of the contacts on which the constraint applies
+    :param limit: Maximum force, expressed as percentage of robot weight
 
     """
     self.indexes = indexes
@@ -99,9 +99,9 @@ class DistConstraint(object):
   def __init__(self, origin, radius):
     """Default constructor.
 
-    :origin: Origin of the circle/sphere. Should be (n, 1)
+    :param origin: Origin of the circle/sphere. Should be (n, 1)
     Will be clamped to first size_z() dimensions.
-    :radius: Radius of the circle/sphere
+    :param radius: Radius of the circle/sphere
 
     """
     self.origin = origin
