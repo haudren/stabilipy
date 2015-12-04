@@ -3,11 +3,7 @@
 
 from enum import Enum, unique
 import numpy as np
-
-def cross_m(vec):
-  return np.array([[0, -vec.item(2), vec.item(1)],
-                   [vec.item(2), 0, -vec.item(0)],
-                   [-vec.item(1), vec.item(0), 0]])
+from utils import cross_m
 
 @unique
 class Constraint(Enum):
