@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 
 np.set_printoptions(linewidth=1000)
 
-#execfile('stairs_contacts.py')
-
 from stairs_contacts import pos, normals
 
 def main():
