@@ -18,12 +18,12 @@ By default, a 3D robust static polyhedron is defined, see
 
 It is then necessary to create some contacts, and insert them in the polygon::
 
-   pos = [[0., 0., 1.], [1., 0., 0.]]
-   normals = [[0., 0., 1.], [0.1, 0.1, 1.]]
+   pos = [[[0., 0., 1.]], [[1., 0., 0.]]]
+   normals = [[[0., 0., 1.]], [[0.1, 0.1, 1.]]]
    mu = 0.7
 
    contacts = [stability.Contact(mu, np.array(p).T,
-                                 stability.utils.normalize(np.array(n)))
+                                 stability.utils.normalize(np.array(n).T))
                for p, n in zip(pos, normals)]
    poly.contacts = contacts
 
