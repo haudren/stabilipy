@@ -94,14 +94,15 @@ class ForceConstraint(object):
 
 class DistConstraint(object):
 
-  """Constraint to limit position of the CoM w.r. to an origin"""
+  """Constraint to limit position of the CoM w.r. to an origin.
+  The origin will be clamped to dimension of the polygon."""
 
   def __init__(self, origin, radius):
     """Default constructor.
 
-    :param origin: Origin of the circle/sphere. Should be (n, 1)
-    Will be clamped to first size_z() dimensions.
+    :param origin: Origin of the circle/sphere.
     :param radius: Radius of the circle/sphere
+    :type origin:  np.array(n, 1)
 
     """
     self.origin = origin
@@ -127,13 +128,13 @@ class CubeConstraint(object):
   """Constraint to limit position of the CoM to a cuboid centered at an origin"""
 
   def __init__(self, origin, length):
-    """Default constructor
+    """Default constructor. Origin will be clamped to the dimension of the polygon.
 
-    :param origin: Origin of the cuboid. Should be (n, 1).
-    Will be clamped to first size_z() dimensions.
+    :param origin: Origin of the cuboid.
     :param length: Length of the sides fo the box.
-
+    :type origin: np.array(n, 1).
     """
+
     self.origin = origin
     self.length = length
     self.ctype = Constraint.Inequality

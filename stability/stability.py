@@ -25,13 +25,20 @@ class Mode(Enum):
   iteration = 2
   best = 3
 
-#A contact should contain :
-# - r : position world
-# - n : normal to teh surface
-# - mu : friction coefficient
-
 class Contact():
+
+  """Class representing a contact as a single point"""
+
   def __init__(self, mu, pos, normal):
+    """Default constructor.
+
+    :param r: position in the world frame
+    :param n: associated normal
+    :param mu: friction coefficient
+    :type n: np.array(3,1)
+    :type r: np.array(3,1)
+    :type mu: double"""
+
     self.n = normal
     self.r = pos
     self.mu = mu
@@ -53,12 +60,12 @@ class SteppingException(Exception):
   def __str__(self):
     return self.message
 
-#Algorithm to compute stability polygon according to
-#Bretl et al. "Testing static equilibrium of legged robots"
-# You need to first set some contacts and a robot mass
-# Then call compute with desired precision.
-
 class StabilityPolygon():
+  """Algorithm to compute stability polygon according to
+  Bretl et al. \"Testing static equilibrium of legged robots\".
+  You need to first set some contacts and a robot mass
+  Then call compute with desired precision."""
+
   def __init__(self, robotMass, dimension=3, gravity=-9.81,
                radius=2., force_lim=1.):
     solvers.options['show_progress'] = False
