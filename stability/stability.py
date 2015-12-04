@@ -11,7 +11,7 @@ from scipy.linalg import block_diag
 
 from enum import Enum, unique
 
-from constraints import TorqueConstraint, DistConstraint, ForceConstraint
+from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
 
 from backends import CDDBackend, ParmaBackend, PlainBackend
 
@@ -132,6 +132,10 @@ class StabilityPolygon():
     """Limit the CoM to || CoM - origin || < radius"""
     self.dist_constraints.append(DistConstraint(origin, radius))
 
+  def addCubeConstraint(self, origin, length):
+    """Limit the CoM to | CoM - origin | < length"""
+    self.cube_constraints.append(CubeConstraint(origin, length))
+
   def reset(self):
     self.contacts = []
     self.clearAlgo()
@@ -141,6 +145,7 @@ class StabilityPolygon():
     self.torque_constraints = []
     self.force_constraints = []
     self.dist_constraints = []
+    self.cube_constraints = []
 
   def clearAlgo(self):
     self.volume_dic = {}
@@ -156,6 +161,7 @@ class StabilityPolygon():
   def make_problem(self):
     A_s = []
     B_s = []
+    C_s = []
     u_s = []
     L_s = []
     tb_s = []
@@ -163,6 +169,7 @@ class StabilityPolygon():
     r_s = []
     F_s = []
     f_s = []
+    d_s = []
 
     #Add global dist constraint
     #This com cone should prevent com from going to infinity : ||com|| =< max
@@ -192,6 +199,13 @@ class StabilityPolygon():
     else:
       F_s, f_s = [], []
 
+    if self.cube_constraints:
+      for cc in self.cube_constraints:
+        cc.compute(self)
+      C_s, d_s = zip(*[fc.matrices() for fc in self.cube_constraints])
+    else:
+      F_s, f_s = [], []
+
     for c in self.contacts:
       A_s.append(np.vstack([np.eye(3), cross_m(c.r)]))
       B_s.append(np.eye(3) - np.dot(c.n, c.n.T))
@@ -213,6 +227,9 @@ class StabilityPolygon():
 
     self.F_s = F_s
     self.f_s = f_s
+
+    self.C_s = C_s
+    self.d_s = d_s
 
   def computeA2(self, gravity):
     return np.vstack([np.zeros((3, self.size_z())),
@@ -252,7 +269,7 @@ class StabilityPolygon():
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
     dims = {
-        'l': self.size_tb() + 2*self.size_x(),  # Pure inequality constraints
+        'l': self.size_tb() + 2*self.size_x() + sum([cc.size for cc in self.cube_constraints]),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
         'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[fc.size for fc in self.force_constraints],
         's': []  # No sd cones
@@ -287,6 +304,11 @@ class StabilityPolygon():
     g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
 
     h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
+
+    #Cube constraints
+    if self.C_s:
+      g_s.append(np.vstack(self.C_s))
+      h_s.append(np.vstack(self.d_s))
 
     #These are additional dist constraints
     g_s.extend(self.S_s)

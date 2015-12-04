@@ -121,3 +121,34 @@ class DistConstraint(object):
 
   def matrices(self):
     return self.S, self.r
+
+class CubeConstraint(object):
+
+  """Constraint to limit position of the CoM to a cuboid centered at an origin"""
+
+  def __init__(self, origin, length):
+    """Default constructor
+
+    :param origin: Origin of the cuboid. Should be (n, 1).
+    Will be clamped to first size_z() dimensions.
+    :param length: Length of the sides fo the box.
+
+    """
+    self.origin = origin
+    self.length = length
+    self.ctype = Constraint.Inequality
+
+  def compute(self, poly):
+    self.size = 2*poly.size_z()
+    C = np.zeros((self.size, poly.nrVars()))
+    C[:, -poly.size_z():] = np.vstack([np.eye(poly.size_z()), -np.eye(poly.size_z())])
+
+    d = np.zeros((self.size, 1))
+    d[:poly.size_z(), :] = self.origin[:poly.size_z(), :]+self.length
+    d[poly.size_z():, :] = -self.origin[:poly.size_z(), :]+self.length
+
+    self.C, self.d = C, d
+
+  def matrices(self):
+    print self.C, self.d
+    return self.C, self.d
