@@ -58,3 +58,9 @@ target/
 
 #Images output when recording animation
 stability/*.png
+#Polyhedron output
+examples/interp_vs_cstr/*
+stability/out/*
+#Misc
+logs/*
+profiles/*
