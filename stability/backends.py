@@ -31,10 +31,15 @@ class SteppingException(Exception):
 
 class CDDBackend(object):
 
-  """Using the CDD backend for polygon computation"""
+  """Using the CDD backend for polygon computation. This is the most polyvalent
+  backend. Works on floating-point numbers. Requires pycddlib"""
 
   def __init__(self, geomengine='scipy'):
-    """Default constructor """
+    """Default constructor.
+
+    :param geomengine: underlying geometry engine. Only scipy is supported
+    """
+
     if not CDD_AVAILABLE:
       raise ValueError("Cannot find cddlib. Make sure you install pycddlib.")
     self.name = 'cdd'
@@ -114,10 +119,16 @@ class CDDBackend(object):
 
 class ParmaBackend(object):
 
-  """Backend using the Parma Polyhedra Library"""
+  """Backend using the Parma Polyhedra Library
+  This is the most precise, and thus slow backend. Works on integer (unlimited
+  precision through the use of GMP). Requires pyparma."""
 
   def __init__(self, geomengine='scipy'):
-    """Default constructor. """
+    """Default constructor.
+
+    :param geomengine: underlying geometry engine. Only scipy is supported
+    """
+
     if not PPL_AVAILABLE:
       raise ValueError("Cannot find the ppl. Make sure you install pyparma.")
     self.name = 'parma'
@@ -183,10 +194,16 @@ class ParmaBackend(object):
 
 class PlainBackend(object):
 
-  """Plain Backend using the cdd backend for initialization"""
+  """Plain Backend using the cdd backend for initialization.
+  This is the simplest, fastest backend. However, only works on
+  2D polygons."""
 
   def __init__(self, geomengine='scipy'):
-    """Default constructor. """
+    """Default constructor.
+
+    :param geomengine: underlying geometry engine. Only scipy is supported.
+    """
+
     if not CDD_AVAILABLE:
       raise ValueError("Cannot find cddlib. Make sure you install pycddlib.")
     self.name = 'parma'
