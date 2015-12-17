@@ -236,7 +236,7 @@ class StabilityPolygon():
         cc.compute(self)
       C_s, d_s = zip(*[fc.matrices() for fc in self.cube_constraints])
     else:
-      F_s, f_s = [], []
+      C_s, d_s = [], []
 
     for c in self.contacts:
       A_s.append(np.vstack([np.eye(3), cross_m(c.r)]))
