@@ -104,7 +104,7 @@ class StabilityPolygon():
                   np.array([[0, 1., 0]]).T,
                   np.array([[0, -1., 0]]).T
               ]
-      self.gravity_envelope = [1.45*s for s in shape]
+      self.gravity_envelope = [0.45*s for s in shape]
       self.proj = np.eye(3)
 
     elif dimension == 2:
