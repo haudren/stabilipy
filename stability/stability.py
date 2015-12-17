@@ -21,6 +21,8 @@ from utils import cross_m, normalize
 
 from geomengines import convexify_polyhedron
 
+from linear_cone import rotate_axis
+
 @unique
 class Mode(Enum):
 
@@ -710,12 +712,16 @@ class StabilityPolygon():
     plt.show()
 
   def plot_contacts(self):
-    X, Y, Z, U, V, W = [], [], [], [], [], []
-    positions = np.hstack([c.r for c in self.contacts])
-    normals = np.hstack([c.n for c in self.contacts])
-    X, Y, Z = positions[0, :], positions[1, :], positions[2, :]
-    U, V, W = normals[0, :], normals[1, :], normals[2, :]
-    self.ax.quiver(X, Y, Z, U, V, W, color='black', linestyles='dashed')
+    num_points = 50
+    radius = 0.1
+    angles = np.linspace(0, 2*np.pi, num_points)
+    points = np.vstack((radius*np.cos(angles), radius*np.sin(angles), np.zeros((num_points,)))).T
+
+    for c in self.contacts:
+      rot = rotate_axis(np.array([[0., 0., 1.]]).T, c.n)
+      world_points = c.r+rot.dot(c.mu*points.T)
+      x, y, z = zip(*world_points.T)
+      self.ax.plot(x, y, z)
 
   def plot_solution(self):
     com_pos = self.com
