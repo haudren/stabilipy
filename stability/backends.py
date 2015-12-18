@@ -137,7 +137,12 @@ class ParmaBackend(object):
       self.volume_convex = self.scipy_volume_convex
 
   def scipy_volume_convex(self, poly):
-    points = floatize(poly.vrep()[:, 1:])
+    vrep = poly.vrep()
+    if vrep.size != 0:
+      points = floatize(poly.vrep()[:, 1:])
+    else:
+      return 0
+
     try:
       ch = ConvexHull(points)
     except QhullError:
