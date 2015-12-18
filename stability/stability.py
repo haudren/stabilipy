@@ -719,9 +719,10 @@ class StabilityPolygon():
 
     for c in self.contacts:
       rot = rotate_axis(np.array([[0., 0., 1.]]).T, c.n)
-      world_points = c.r+rot.dot(c.mu*points.T)
+      world_points = radius*c.n+c.r+rot.dot(c.mu*points.T)
       x, y, z = zip(*world_points.T)
-      self.ax.plot(x, y, z)
+      self.ax.plot(x, y, z, 'black')
+      self.ax.plot(c.r[0], c.r[1], c.r[2], marker='o', markersize=6, color='black')
 
   def plot_solution(self):
     com_pos = self.com
@@ -737,19 +738,20 @@ class StabilityPolygon():
       X, Y, Z = pos[0], pos[1], pos[2]
       U, V, W = -force[0], -force[1], -force[2]
       l = np.linalg.norm(force)/(self.mass*abs(self.gravity.item(2)))
-      self.ax.quiver(X, Y, Z, U, V, W, color='r', length=l)
+      self.ax.quiver(X, Y, Z, U, V, W, color='r', length=l, arrow_length_ratio=0.)
 
   def plot_direction(self, d):
     self.ax.plot([0, d.item(0)], [0, d.item(1)], marker='d')
 
   def plot_polyhedrons(self):
-    self.plot_polyhedron(self.inner, 'red', 0.5)
+    self.plot_polyhedron(self.inner, 'red', 0.1)
     self.plot_polyhedron(self.outer, 'blue', 0.1)
 
   def plot_polyhedron(self, poly, c, a):
     coords, tri = self.triangulate_polyhedron(poly)
     if len(coords) == 3:
-      self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a)
+      surf = self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a, shade=True)
+      surf.set_edgecolor('red')
     else:
       self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
       self.ax.triplot(*coords, triangles=tri, color=c, alpha=a)
