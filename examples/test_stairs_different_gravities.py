@@ -2,6 +2,7 @@ from __future__ import division
 import stability as stab
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 np.set_printoptions(linewidth=1000)
 
@@ -42,8 +43,10 @@ def main():
       poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
                    plot_init=False, plot_final=False, plot_step=False,
                    plot_direction=False, plot_error=False)
-      poly.plot()
-    plt.show()
+      filename = os.path.join('different_gravities', 'g_{}_{}d'.format(gravity, poly.dimension))
+      poly.save_polyhedron(filename)
+      #poly.plot()
+    #plt.show()
   return poly
 
 if __name__ == '__main__':

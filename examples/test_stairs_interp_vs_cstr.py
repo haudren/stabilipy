@@ -41,12 +41,13 @@ def main():
   poly.contacts = contacts[0:4]
   poly.contacts += [stab.Contact(mu, p, n) for p, n in zip(*lfc())]
 
-  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
+  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='parma',
                plot_init=False, plot_final=False, plot_step=False,
                plot_direction=False, plot_error=False)
 
   p1 = poly.polygon()
 
+  poly.reset()
   poly.contacts = contacts
   poly.contacts += [stab.Contact(mu, p, n) for p, n in zip(*lfc())]
 
@@ -67,7 +68,7 @@ def main():
   #for gravity in gravities:
   #  poly.gravity_envelope = [gravity*s for s in shape]
 
-  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
+  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='parma',
                plot_init=False, plot_final=False, plot_step=False,
                plot_direction=False, plot_error=False)
 
@@ -101,14 +102,14 @@ def main():
   np.savetxt(os.path.join(frame_dir, 'p1'), A)
 
   f = open('top_lel.txt', 'w')
-  nr_tests = 100
+  nr_tests = 10
   for i in range(nr_tests+1):
-    poly.forces_constraints = []
+    poly.clearConstraints()
     cur_percent = (nr_tests-i)/nr_tests
     for k in range(4, 8):
       poly.addForceConstraint(contacts[k:k+1], cur_percent)
 
-    poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
+    poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='parma',
                  plot_init=False, plot_final=False, plot_step=False,
                  plot_direction=False, plot_error=False)
 
@@ -148,9 +149,9 @@ def main():
     f.flush()
     print cur_area - interp_area
 
-    #poly.plot()
-    #poly.ax.plot(*pi.exterior.coords.xy)
-    #poly.show()
+    poly.plot()
+    poly.ax.plot(*pi.exterior.coords.xy)
+    poly.show()
 
     #plt.plot(*pi.exterior.coords.xy)
     #plt.show()
