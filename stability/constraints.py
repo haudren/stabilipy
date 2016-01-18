@@ -116,7 +116,7 @@ class DistConstraint(object):
     S[1:, -poly.size_z():] = -np.eye(poly.size_z())
     r = np.zeros((self.size, 1))
     r[0] = self.radius
-    r[1:] = self.origin[:poly.size_z(), :]
+    r[1:] = -self.origin[:poly.size_z(), :]
     self.S = S
     self.r = r
 
