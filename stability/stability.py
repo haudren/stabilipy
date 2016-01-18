@@ -689,9 +689,12 @@ class StabilityPolygon():
     np.savetxt(fname, convexify_polyhedron(self.outer))
 
   def reset_fig(self):
-    fig = plt.figure()
-    self.ax = fig.add_subplot('111', aspect='equal', projection='3d')
-    tup = [-1.1*self.radius, 1.1*self.radius]
+    self.fig = plt.figure()
+    self.ax = self.fig.add_subplot('111', aspect='equal', projection='3d')
+    if self.radius is not None:
+      tup = [-1.1*self.radius, 1.1*self.radius]
+    else:
+      tup = [-2, 2]
     self.ax.set_xlim(tup)
     self.ax.set_ylim(tup)
     self.ax.set_zlim(tup)
@@ -753,7 +756,7 @@ class StabilityPolygon():
       surf = self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a, shade=True)
       surf.set_edgecolor('red')
     else:
-      self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
+      #self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
       self.ax.triplot(*coords, triangles=tri, color=c, alpha=a)
 
   def plot_sphere(self, origin, radius, color):
@@ -763,10 +766,10 @@ class StabilityPolygon():
       x = r*np.cos(u)*np.sin(v) + origin[0]
       y = r*np.sin(u)*np.sin(v) + origin[1]
       z = r*np.cos(v) + origin[2]
-      self.ax.plot_wireframe(x, y, z, color=color, alpha=0.2)
+      self.ax.plot_wireframe(x, y, z, color=color, alpha=0.1)
     else:
       u = np.mgrid[0:2*np.pi:40j]
       r = radius
       x = r*np.cos(u) + origin[0]
       y = r*np.sin(u) + origin[1]
-      self.ax.plot(x, y, color=color, alpha=0.2)
+      self.ax.plot(x, y, color=color, alpha=0.1)
