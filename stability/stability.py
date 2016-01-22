@@ -5,7 +5,6 @@ from enum import Enum, unique
 import numpy as np
 from scipy.linalg import block_diag
 from cvxopt import matrix, solvers
-import cdd
 import shapely.geometry as geom
 
 import matplotlib.pyplot as plt
@@ -661,7 +660,7 @@ class StabilityPolygon():
     """Return the inner approximation as a shapely polygon. Only valid in 2D"""
     assert(self.dimension == 2)
     if isinstance(self.backend, CDDBackend):
-      gen = np.array(cdd.Polyhedron(self.inner).get_generators())[:, 1:]
+      gen = np.array(self.inner)[:, 1:]
     elif isinstance(self.backend, PlainBackend):
       gen = self.inner.vertices
     elif isinstance(self.backend, ParmaBackend):
