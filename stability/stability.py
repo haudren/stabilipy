@@ -22,6 +22,7 @@ from utils import cross_m, normalize
 from geomengines import convexify_polyhedron
 
 from linear_cone import rotate_axis
+from printing import Verbosity, Printer
 
 @unique
 class Mode(Enum):
@@ -98,6 +99,7 @@ class StabilityPolygon():
     self.dimension = dimension
     self.radius = radius
     self.force_lim = force_lim
+    self.printer = Printer(Verbosity.info)
 
     if dimension == 3:
       shape = [
@@ -493,7 +495,8 @@ class StabilityPolygon():
         self.step(d)
       except SteppingException as e:
         rdir = np.random.random((self.size_z(), 1))
-        print str(e), " Will try in a random direction {}".format(rdir.T)
+        self.printer(str(e)+" Will try in a random direction {}".format(rdir.T),
+                     Verbosity.error)
         rdirs.append(rdir)
 
     for d in rdirs:
@@ -616,14 +619,16 @@ class StabilityPolygon():
 
     if(mode is Mode.precision):
       iterBound = self.iterBound(len(self.points), error, epsilon)
-      print "Reaching {} should take {} iterations".format(epsilon,
-                                                           np.ceil(iterBound))
+      self.printer("Reaching {} should take {} iterations".format(epsilon,
+                                                                  np.ceil(iterBound)),
+                   Verbosity.info)
       stop_condition = lambda: error > epsilon
     elif(mode is Mode.iteration):
-      print "This will take {} iterations".format(maxIter)
+      self.printer("This will take {} iterations".format(maxIter), Verbosity.info)
       stop_condition = lambda: nrSteps < maxIter
     elif(mode is Mode.best):
-      print "Will try to reach {} under {} iterations".format(epsilon, maxIter)
+      self.printer("Will try to reach {} under {} iterations".format(epsilon, maxIter),
+                   Verbosity.info)
       stop_condition = lambda: nrSteps < maxIter and error > epsilon
     else:
       raise ValueError("Unknown mode, please use a value supplied in enum")
@@ -633,12 +638,12 @@ class StabilityPolygon():
         self.next_edge(plot_step, plot_direction, record_anim,
                        fname_polys, nrSteps)
       except SteppingException as e:
-        print "Failure detected... Aborting"
-        print e.message
+        self.printer("Failure detected... Aborting", Verbosity.error)
+        self.printer(e.message, Verbosity.error)
         failure = True
         break
       error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
-      print error
+      self.printer(error, Verbosity.info)
       sys.stdout.flush()
 
       nrSteps += 1
@@ -652,7 +657,7 @@ class StabilityPolygon():
         self.fig_error.canvas.draw()
         plt.pause(0.01)
 
-    print "NrIter : {} | Remainder : {}".format(nrSteps, error)
+    self.printer("NrIter : {} | Remainder : {}".format(nrSteps, error), Verbosity.info)
 
     if plot_final and not failure:
       self.plot()
