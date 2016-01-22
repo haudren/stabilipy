@@ -1,26 +1,20 @@
+import sys
+from functools import partial
+from enum import Enum, unique
+
 import numpy as np
+from scipy.linalg import block_diag
 from cvxopt import matrix, solvers
 import cdd
 import shapely.geometry as geom
-import sys
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
-from scipy.linalg import block_diag
-
-from enum import Enum, unique
-
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
-
 from backends import CDDBackend, ParmaBackend, PlainBackend
-
-from functools import partial
-
 from utils import cross_m, normalize
-
 from geomengines import convexify_polyhedron
-
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
 
