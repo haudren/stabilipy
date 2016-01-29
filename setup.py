@@ -73,7 +73,14 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=[],
+    install_requires=[
+          "scipy>=0.17.0",
+          "matplotlib",
+          "numpy>=1.8.2",
+          "pyparma>=0.3.0",
+          "pycddlib>=1.0.0",
+          "cvxopt>=1.1.4",
+          ],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,

@@ -1,0 +1,18 @@
+variables:
+  CI_TOOL: gitlab-ci
+  APT_DEPENDENCIES: "python python-pip python-virtualenv python-numpy python-matplotlib liblapack-dev libatlas-dev libblas-dev libgmp-dev"
+
+before_script:
+  - git submodule update --quiet --init --recursive
+  - ./.jrl-ci/run before_install
+
+build_python_2.7:
+  stage: build
+  script:
+    - source /opt/virtualenv/2.7/bin/activate
+    - python setup.py install
+  tags:
+    - python
+
+stages:
+  - build
