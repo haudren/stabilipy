@@ -77,7 +77,7 @@ setup(
           "scipy>=0.17.0",
           "matplotlib",
           "numpy>=1.8.2",
-          "pyparma>=0.3.2",
+          "pyparma>=0.3.3",
           "pycddlib>=1.0.0",
           "cvxopt>=1.1.4",
           ],
