@@ -10,6 +10,7 @@ build_python_2.7:
   stage: build
   script:
     - source /opt/virtualenv/2.7/bin/activate
+    - pip install -r requirements.txt
     - python setup.py install
   tags:
     - python
