@@ -37,7 +37,7 @@ class DoublePolygon(object):
       assert dist < 1e-7, "No inequality matches this vertex : {}".format(v)
       self.correspondences[i] = j_min
 
-    print self.correspondences
+    print(self.correspondences)
     assert(all([c is not None for c in self.correspondences]))
 
   def addPointToInner(self, point, edge_index):
@@ -63,8 +63,7 @@ class DoublePolygon(object):
       next_edge = i2
       prev_edge = i1
     else:
-      print e1, e2
-      raise ValueError("Edges do not share a common opposite vertex")
+      raise ValueError("Edges {}, {} do not share a common opposite vertex".format(e1, e2))
 
     new_i = self.outer.inequalities.shape[0]
 

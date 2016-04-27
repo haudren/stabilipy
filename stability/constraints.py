@@ -151,5 +151,4 @@ class CubeConstraint(object):
     self.C, self.d = C, d
 
   def matrices(self):
-    print self.C, self.d
     return self.C, self.d

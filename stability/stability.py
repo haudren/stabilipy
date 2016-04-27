@@ -13,7 +13,6 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
 from backends import CDDBackend, ParmaBackend, PlainBackend
 from utils import cross_m, normalize
-from geomengines import convexify_polyhedron
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
 
@@ -562,6 +561,7 @@ class StabilityPolygon():
     self.build_polys = partial(self.backend.build_polys, self)
     self.find_direction = partial(self.backend.find_direction, self)
     self.triangulate_polyhedron = self.backend.scipy_triangulate_polyhedron
+    self.convexify_polyhedron = self.backend.scipy_convexify_polyhedron
 
   def compute(self, mode, maxIter=100, epsilon=1e-4,
               solver='cdd',
@@ -677,7 +677,7 @@ class StabilityPolygon():
 
   def polyhedron(self):
     """Return the inner polyhedron as a set of points"""
-    p = convexify_polyhedron(self.inner)
+    p = self.convexify_polyhedron(self.inner)
     return p
 
   def save_polyhedron(self, fname):

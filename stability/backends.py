@@ -117,6 +117,11 @@ class CDDBackend(object):
     ch = ConvexHull(points)
     return [c for c in ch.points.T], ch.simplices
 
+  def scipy_convexify_polyhedron(self, hrep):
+    points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
+    ch = ConvexHull(points)
+    return ch.points
+
 class ParmaBackend(object):
 
   """Backend using the Parma Polyhedra Library
@@ -197,6 +202,11 @@ class ParmaBackend(object):
     ch = ConvexHull(points)
     return [c for c in ch.points.T], ch.simplices
 
+  def scipy_convexify_polyhedron(self, poly):
+    points = floatize(poly.vrep()[:, 1:])
+    ch = ConvexHull(points)
+    return ch.points
+
 class PlainBackend(object):
 
   """Plain Backend using the cdd backend for initialization.
@@ -223,7 +233,7 @@ class PlainBackend(object):
     try:
       ch = ConvexHull(points)
     except QhullError:
-      print "Unable to find convex hull"
+      print("Unable to find convex hull")
       return 0
     return ch.volume
 
@@ -297,3 +307,8 @@ class PlainBackend(object):
     points = poly.vertices
     ch = ConvexHull(points)
     return [c for c in ch.points.T], ch.simplices
+
+  def scipy_convexify_polyhedron(self, poly):
+    points = poly.vertices
+    ch = ConvexHull(points)
+    return ch.points
