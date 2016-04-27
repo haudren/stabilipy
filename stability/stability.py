@@ -173,6 +173,7 @@ class StabilityPolygon():
     """Resets internal state"""
     self.volume_dic = {}
     self.vrep_dic = {}
+    self.hrep_dic = {}
 
     self.directions = []
     self.points = []
@@ -512,10 +513,13 @@ class StabilityPolygon():
     offset = self.offsets[-1]
     direction = self.directions[-1]
     keys = []
+
     for key, vrep in self.vrep_dic.iteritems():
       valid = all(((offset+direction.dot(p[1:].T)) > 0 for p in vrep))
       if not valid:
         keys.append(key)
+        if key in self.hrep_dic:
+          self.hrep_dic[key].extend(np.hstack((offset, -direction)))
 
     #print "Invalidating {} keys out of {}".format(len(keys),
     #                                              len(self.vrep_dic.keys()))

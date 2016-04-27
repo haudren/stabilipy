@@ -95,15 +95,20 @@ class CDDBackend(object):
       if key in poly.volume_dic:
         volumes.append(poly.volume_dic[key])
       else:
-        A_e = poly.outer.copy()
-        A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
-        A_e.canonicalize()
+        if key in poly.hrep_dic:
+          A_e = poly.hrep_dic[key]
+        else:
+          A_e = poly.outer.copy()
+          A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
+          A_e.canonicalize()
+          poly.hrep_dic[key] = A_e
 
         if plot:
           poly.reset_fig()
           poly.plot_polyhedrons()
           poly.plot_polyhedron(A_e, 'm', 0.5)
           poly.show()
+
         vol = self.volume_convex(A_e)
         poly.volume_dic[key] = vol
         volumes.append(vol)
