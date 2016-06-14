@@ -14,9 +14,40 @@ xlim = [-0.95389899, 0.95389899]
 ylim = [-0.95389899, 0.95389899]
 zlim = [-0.95389899, 0.95389899]
 
-def main(n, alpha):
-  if alpha < 1/float(n):
-    raise RuntimeError("Unfeasible")
+
+class CircularBuffer():
+
+  """Holds object and allows to access from both ends"""
+
+  def __init__(self, l):
+    """Construct from list
+
+    :l: A list
+
+    """
+
+    self.l = l
+
+  def __getitem__(self, i):
+    if not isinstance(i, int):
+      raise KeyError("Only integers are accepted in circular buffer")
+    if i < len(self.l):
+      return self.l[i]
+    else:
+      return self.l[i % len(self.l)]
+
+def point_seq(n):
+  l = [None]*(2*n)
+  l[::2] = range(n)
+  l[1::2] = [-i for i in range(n)]
+  return l[1:]
+
+def main(n, alphas):
+  if len(alphas) != n:
+    raise RuntimeError("Need same number of constraints as contacts")
+
+  if sum(alphas) < 1:
+    raise RuntimeError("Bound too low")
 
   mu = 0.5
   pos, normals = contacts(n)
@@ -26,7 +57,7 @@ def main(n, alpha):
   polygon.contacts = cont
 
   for i in range(n):
-    polygon.addForceConstraint([polygon.contacts[i]], alpha)
+    polygon.addForceConstraint([polygon.contacts[i]], alphas[i])
 
   polygon.compute(stab.Mode.best, epsilon=2e-3, maxIter=100, solver='plain',
                   record_anim=False, plot_init=False,
@@ -39,52 +70,53 @@ def main(n, alpha):
 
   polygon.ax.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
 
+  shrink_points = []
+  seq = CircularBuffer(point_seq(n))
+  alphas = CircularBuffer(alphas)
+  points = CircularBuffer([c.r[0:2, :] for c in polygon.contacts])
   for i in range(n):
-    p0 = polygon.contacts[i].r[0:2, :]
-    p1 = polygon.contacts[i-1].r[0:2, :]
-    if i < n-1:
-      p2 = polygon.contacts[i+1].r[0:2, :]
-    else:
-      p2 = polygon.contacts[i-(n-1)].r[0:2, :]
+    a0 = a1 = alphas[i]
+    r0 = r1 = alphas[i]*points[i]
+    k0 = k1 = i
+    ex0 = "{}*p{}".format(alphas[i], i)
+    ex1 = "{}*p{}".format(alphas[i], i)
 
-    p3 = polygon.contacts[i-2].r[0:2, :]
+    done0 = done1 = False
+    niter = 1
+    while not (done0 and done1):
+      k0 = i + seq[niter]
+      k1 = i - seq[niter]
 
-    if i < n-2:
-      p4 = polygon.contacts[i+2].r[0:2, :]
-    else:
-      p4 = polygon.contacts[i-(n-2)].r[0:2, :]
+      if not done0:
+        if a0 + alphas[k0] >= 1:
+          r0 = r0 + (1-a0)*points[k0]
+          ex0 += "+ {}*p{}".format(1-a0, k0)
+          done0 = True
+        else:
+          r0 = r0 + alphas[k0]*points[k0]
+          ex0 += "+ {}*p{}".format(alphas[k0], k0)
+          a0 += alphas[k0]
 
-    p5 = polygon.contacts[i-3].r[0:2, :]
+      if not done1:
+        if a1 + alphas[k1] >= 1:
+          r1 = r1 + (1-a1)*points[k1]
+          ex1 += " {}*p{}".format(1-a1, k1)
+          done1 = True
+        else:
+          r1 = r1 + alphas[k1]*points[k1]
+          ex1 += " {}*p{}".format(alphas[k1], k1)
+          a1 += alphas[k1]
+      niter += 1
 
-    if i < n-3:
-      p6 = polygon.contacts[i+3].r[0:2, :]
-    else:
-      p6 = polygon.contacts[i-(n-3)].r[0:2, :]
-
-
-    if alpha > 0.5: #1/2
-      r1 = alpha*p0 + (1-alpha)*p1
-      r2 = alpha*p0 + (1-alpha)*p2
-    elif alpha > 0.33: # 1/3
-      r1 = alpha*p0 + alpha*p1 + (1-2*alpha)*p2
-      r2 = alpha*p0 + alpha*p2 + (1-2*alpha)*p1
-    elif alpha > 0.25: # 1/4
-      r1 = alpha*p0 + alpha*p1 + alpha*p2 + (1 - 3*alpha)*p3
-      r2 = alpha*p0 + alpha*p2 + alpha*p1 + (1 - 3*alpha)*p4
-    elif alpha > 0.2: # 1/5
-      r1 = alpha*p0 + alpha*p1 + alpha*p2 + alpha*p3 + (1-4*alpha)*p4
-      r2 = alpha*p0 + alpha*p2 + alpha*p1 + alpha*p4 + (1-4*alpha)*p3
-    elif alpha > 0.16: #1/6
-      r1 = alpha*p0 + alpha*p1 + alpha*p2 + alpha*p3 + alpha*p4 + (1-5*alpha)*p6
-      r2 = alpha*p0 + alpha*p2 + alpha*p1 + alpha*p4 + alpha*p3 + (1-5*alpha)*p5
-    else:
-      raise RuntimeError("Bound too low")
-
+    print ex0
+    print ex1
+    shrink_points.append(r0)
+    shrink_points.append(r1)
+    polygon.ax.plot(r0[0], r0[1], marker='^', markersize=20)
     polygon.ax.plot(r1[0], r1[1], marker='^', markersize=20)
-    polygon.ax.plot(r2[0], r2[1], marker='^', markersize=20)
 
   polygon.show()
 
-print("n-sided gon : {} with limit {}".format(int(sys.argv[1]), float(sys.argv[2])))
+print("n-sided gon : {} with limits {}".format(int(sys.argv[1]), map(float, sys.argv[2:])))
 
-main(int(sys.argv[1]), float(sys.argv[2]))
+main(int(sys.argv[1]), map(float, sys.argv[2:]))
