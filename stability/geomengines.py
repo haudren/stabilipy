@@ -69,7 +69,7 @@ def qhull_convexify_polyhedron(hrep):
 
 def scipy_convexify_polyhedron(hrep):
   points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-  ch = ConvexHull(points)
+  ch = ConvexHull(points, qhull_options='QbB')
   return ch.points
 
 def cgal_convexify_polyhedron(hrep):

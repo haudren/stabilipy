@@ -57,7 +57,7 @@ class CDDBackend(object):
     if points.shape[0] < points.shape[1]+1:
       return 0
     try:
-      ch = ConvexHull(points)
+      ch = ConvexHull(points, qhull_options='QbB')
     except QhullError:
       return 0
     return ch.volume
@@ -123,12 +123,12 @@ class CDDBackend(object):
 
   def scipy_triangulate_polyhedron(self, hrep):
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-    ch = ConvexHull(points)
+    ch = ConvexHull(points, qhull_options='QbB')
     return [c for c in ch.points.T], ch.simplices
 
   def scipy_convexify_polyhedron(self, hrep):
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-    ch = ConvexHull(points)
+    ch = ConvexHull(points, qhull_options='QbB')
     return ch.points
 
 class ParmaBackend(object):
