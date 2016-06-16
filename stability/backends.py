@@ -53,6 +53,8 @@ class CDDBackend(object):
       points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
     except RuntimeError:
       return 0
+    except IndexError:
+      return 0
 
     if points.shape[0] < points.shape[1]+1:
       return 0

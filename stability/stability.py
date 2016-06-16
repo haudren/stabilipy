@@ -554,7 +554,11 @@ class StabilityPolygon():
     keys = []
 
     for key, vrep in self.vrep_dic.iteritems():
-      valid = all(((offset+direction.dot(p[1:].T)) > 0 for p in vrep))
+      try:
+        valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
+      except IndexError as e:
+        print "Error :( "
+        valid = True
       if not valid:
         keys.append(key)
         if key in self.hrep_dic:
