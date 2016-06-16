@@ -6,6 +6,7 @@ from scipy.spatial.qhull import QhullError
 import numpy as np
 
 import hashlib
+import random
 
 try:
   import cdd
@@ -114,7 +115,10 @@ class CDDBackend(object):
         volumes.append(vol)
         poly.vrep_dic[key] = np.array(cdd.Polyhedron(A_e).get_generators())
 
-    i, a = max(enumerate(volumes), key=lambda x: x[1])
+    maxv = max(volumes)
+    alli = [i for i, v in enumerate(volumes) if v == maxv]
+    i = random.choice(alli)
+    key = hashlib.sha1(ineq[i, :]).hexdigest()
     return -ineq[i, 1:]
 
   def scipy_triangulate_polyhedron(self, hrep):
@@ -199,7 +203,9 @@ class ParmaBackend(object):
         poly.plot_polyhedron(A_e, 'm', 0.5)
         poly.show()
 
-    i, a = max(enumerate(volumes), key=lambda x: x[1])
+    maxi, maxv = max(enumerate(volumes), key=lambda x: x[1])
+    alli = [i for i, v in enumerate(volumes) if v == maxv]
+    i = random.choice(alli)
     return floatize(-ineq[i, 1:])
 
   def scipy_triangulate_polyhedron(self, poly):
