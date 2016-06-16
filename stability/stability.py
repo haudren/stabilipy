@@ -69,7 +69,7 @@ class StabilityPolygon():
   cones. In 3D, computes a robust static stability polyhedron."""
 
   def __init__(self, robotMass, dimension=3, gravity=-9.81,
-               radius=2., force_lim=1.):
+               radius=2., force_lim=1., robust_sphere=-1):
     """The default constructor to build a polygon/polyhedron.
 
     :param robotMass: Mass of the robot
@@ -92,6 +92,7 @@ class StabilityPolygon():
     self.radius = radius
     self.force_lim = force_lim
     self.printer = Printer(Verbosity.info)
+    self.robust_sphere = robust_sphere
 
     if dimension == 3:
       shape = [
@@ -112,7 +113,7 @@ class StabilityPolygon():
       raise ValueError("Dimension can only be 2 or 3")
 
   def nrVars(self):
-    return self.size_x() + self.size_z()
+    return self.size_x() + self.size_z() + self.size_s()
 
   def size_tb(self):
     if self._size_tb is None:
@@ -125,6 +126,12 @@ class StabilityPolygon():
 
   def size_z(self):
     return self.dimension
+
+  def size_s(self):
+    if self.robust_sphere > 0:
+      return len(self.contacts)
+    else:
+      return 0
 
   def addContact(self, contact):
     self.contacts.append(contact)
@@ -201,6 +208,11 @@ class StabilityPolygon():
     f_s = []
     d_s = []
 
+    if self.robust_sphere > 0:
+      self.gravity_envelope = [
+          np.array([[0.0, 0.0, 0.0]]).T
+          ]
+
     if self.radius is not None:
       self.addDistConstraint(np.zeros((self.size_z(), 1)), self.radius)
 
@@ -248,6 +260,12 @@ class StabilityPolygon():
     self.B_s = B_s
     self.u_s = u_s
 
+    if self.robust_sphere > 0:
+      sigmas = np.linalg.svd(self.A1, compute_uv=False)
+      self.sigma_bar = 1./min([s for s in sigmas if s > 0])
+      thetas = np.linalg.svd(block_diag(*self.B_s).dot(np.linalg.pinv(self.A1)), compute_uv=False)
+      self.theta_bar = max(thetas)
+
     self.L_s = L_s
     self.tb_s = tb_s
 
@@ -279,9 +297,9 @@ class StabilityPolygon():
     self.sol = self.block_socp(a, self.A1, self.A2, self.t, self.B_s, self.u_s)
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
-      self.com = vec[-self.size_z():]
+      self.com = vec[self.size_x():self.size_x()+self.size_z()]
       nrForces = len(self.contacts)*len(self.gravity_envelope)
-      self.forces = vec[:-self.size_z()].reshape((nrForces, 3)).T
+      self.forces = vec[:self.size_x()].reshape((nrForces, 3)).T
       return True
     return False
 
@@ -300,14 +318,16 @@ class StabilityPolygon():
     dims = {
         'l': self.size_tb() + 2*self.size_x() + sum([cc.size for cc in self.cube_constraints]),  # Pure inequality constraints
             # Com cone is now 3d, Size of the cones: x,y,z+1
-        'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[fc.size for fc in self.force_constraints],
+        'q': [dc.size for dc in self.dist_constraints]+[4]*len(self.contacts)*len(self.gravity_envelope)+[self.size_z()+1]*self.size_s()+[fc.size for fc in self.force_constraints],
         's': []  # No sd cones
             }
     size_cones = self.size_x()*4 // 3
 
-    #Max a^T z ~ min -a^T z
-    c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a]))
+    #Optimization vector [ f1 ... fn CoM s1 ... sn]
 
+    #Max a^T z ~ min -a^T z
+    #Final cost : min -a^T z + s
+    c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a, np.zeros((self.size_s(), 1))]))
     A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
@@ -315,7 +335,7 @@ class StabilityPolygon():
     T = np.vstack([self.computeT(self.gravity+e)
                    for e in self.gravity_envelope])
 
-    A = matrix(np.hstack([A1_diag, A2]))
+    A = matrix(np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))]))
 
     g_s = []
     h_s = []
@@ -330,7 +350,7 @@ class StabilityPolygon():
     # <x> [[ I  0] <= <x> lim*mg  2*<x> [ 1]
     # <x> [[ -I 0]
     g_force = np.vstack([np.eye(self.size_x()), -np.eye(self.size_x())])
-    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()))]))
+    g_s.append(np.hstack([g_force, np.zeros((2*self.size_x(), self.size_z()+self.size_s()))]))
 
     h_s.append(self.force_lim*self.mass*9.81*np.ones((2*self.size_x(), 1)))
 
@@ -347,10 +367,29 @@ class StabilityPolygon():
     blocks = [-np.vstack([u.T, B]) for u, B in zip(u_s, B_s)]*len(self.gravity_envelope)
     block = block_diag(*blocks)
 
-    g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()))])
-    g_s.append(g_contacts)
+    g_contacts = np.hstack([block, np.zeros((size_cones, self.size_z()+self.size_s()))])
     h_cones = np.zeros((size_cones, 1))
+
+    g_slacks, h_slacks = None, None
+    if self.robust_sphere > 0:
+      g_slacks = np.zeros((4*self.size_s(), self.nrVars()))
+      h_slacks = np.zeros((4*self.size_s(), 1))
+      for i, contact in enumerate(self.contacts):
+        robusticity = -self.robust_sphere*self.mass*(self.theta_bar+self.sigma_bar*contact.mu)
+        g_contacts[4*i, self.size_x()+self.size_z()+i] = -robusticity
+        h_cones[4*i, 0] = robusticity
+
+        #Add slack variables cones
+        # || z || < s
+        g_slacks[4*i, self.size_x()+self.size_z()+i] = -1
+        g_slacks[4*i+1:4*i+1+self.size_z(), self.size_x():self.size_x()+self.size_z()] = -np.eye(self.size_z())
+
+    g_s.append(g_contacts)
     h_s.append(h_cones)
+
+    if g_slacks is not None:
+      g_s.append(g_slacks)
+      h_s.append(h_slacks)
 
     #Force Constraints
     g_s.extend(self.F_s)
