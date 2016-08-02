@@ -1,7 +1,11 @@
 import stability as stab
 import numpy as np
 import cdd
+import pyparma
+from pyparma.utils import fractionize, ex_from_line
+
 import copy
+
 from stability.linear_cone import build_cone
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
@@ -98,28 +102,66 @@ def main():
   limit_force[:, 0:1] = f_max*np.vstack((np.ones((nr_forces, 1)), np.ones((nr_forces, 1))))
   limit_force[:, 1:-2] = np.vstack((-np.identity(nr_forces), np.identity(nr_forces)))
 
+  def limit_fz(percent):
+    nr_fz = len(poly.contacts)
+    f_max = percent*poly.mass*9.81
+    limit_force = np.zeros((2*nr_fz, 1+poly.nrVars()))
+    for i, c in enumerate(poly.contacts):
+      limit_force[i, 1+3*i:4+3*i] = c.n.T
+      limit_force[nr_fz+i, 1+3*i:4+3*i] = -c.n.T
+    limit_force[:, 0] = f_max
+
+    return limit_force
+
   friction = np.vstack(friction_cstr)
   eq = np.hstack((t, -A1, -A2))
+  f_lim = limit_fz(0.2)
 
-  mat = cdd.Matrix(friction, number_type='fraction')
-  #mat = cdd.Matrix(friction)
-  mat.rep_type = cdd.RepType.INEQUALITY
-  mat.extend(limit_force)
-  mat.extend(limit_cstr)
-  print np.vstack(friction)
-  mat.extend(eq, linear=True)
-  cdd_poly = cdd.Polyhedron(mat)
-  vertices = np.array(cdd_poly.get_generators())
+  print friction.shape
+  print f_lim.shape
 
+  #mat = cdd.Matrix(friction, number_type='fraction')
+  ##mat = cdd.Matrix(friction)
+  #mat.rep_type = cdd.RepType.INEQUALITY
+  ##mat.extend(limit_force)
+  ##mat.extend(limit_cstr)
+  #mat.extend(f_lim)
+  #print np.vstack(friction)
+  #mat.extend(eq, linear=True)
+  #cdd_poly = cdd.Polyhedron(mat)
+  #print "Let's go boiz"
+  #vertices = np.array(cdd_poly.get_generators())
+
+  parmapoly = pyparma.Polyhedron(hrep=fractionize(friction))
+  print eq.shape
+  for equality in eq:
+    ex = ex_from_line(fractionize(equality.squeeze()))
+    parmapoly.poly.add_constraint(ex == 0)
+
+  vertices = parmapoly.vrep()
+  print "Got full vrep"
+
+  for ineq in f_lim:
+    print "Insert"
+    parmapoly.add_ineq(fractionize(ineq))
+  print "Inserted shit"
+  vertex_lim = parmapoly.vrep()
+  print "Got small vrep"
+
+  #print np.array(mat).shape
   print vertices.shape
   if len(vertices.shape) > 1:
     points = vertices[:, -2:]
     hull = ConvexHull(points)
 
+    points_lim = vertex_lim[:, -2:]
+    hull_lim = ConvexHull(points_lim)
+
     poly.reset_fig()
     poly.plot_contacts()
     poly.plot_polyhedron(poly.inner, 'blue', 0.5)
-    poly.ax.plot(points[hull.vertices, 0], points[hull.vertices, 1], label='cdd')
+    poly.ax.plot(points[hull.vertices, 0], points[hull.vertices, 1], label='linear')
+    poly.ax.plot(points_lim[hull_lim.vertices, 0], points_lim[hull_lim.vertices, 1], label='linear lim')
     poly.show()
   else:
     print "No vertices"

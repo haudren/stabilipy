@@ -45,8 +45,8 @@ def main():
                    plot_direction=False, plot_error=False)
       filename = os.path.join('different_gravities', 'g_{}_{}d'.format(gravity, poly.dimension))
       poly.save_polyhedron(filename)
-      #poly.plot()
-    #plt.show()
+      poly.plot()
+    plt.show()
   return poly
 
 if __name__ == '__main__':

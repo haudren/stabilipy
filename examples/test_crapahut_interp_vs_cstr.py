@@ -9,16 +9,15 @@ import os
 from pyparma import Polyhedron as PPL_Poly
 from fractions import Fraction
 
-from left_foot_contact import contacts as lfc
-
+#from crapahut_contacts import pos, normals
+from crapahut_bricks_contacts import points, normals
 import shapes
 
 np.set_printoptions(linewidth=1000)
 
-execfile('stairs_contacts.py')
-
 def main():
-  global pos, normals
+  global points, normals
+  pos = points
 
   #bar = sum(pos)/float(len(pos))
   #pos = [p-bar for p in pos]
@@ -27,7 +26,7 @@ def main():
   frame_dir = 'interp_vs_cstr'
   contacts = [stab.Contact(mu, p, n) for p, n in zip(pos, normals)]
 
-  poly = stab.StabilityPolygon(100, dimension=2, radius=100., force_lim=1.)
+  poly = stab.StabilityPolygon(100, dimension=2, radius=100.)
   #poly.contacts = contacts
 
   #poly.reset_fig()
@@ -38,8 +37,8 @@ def main():
   #poly.check_sizes()
 
 
-  poly.contacts = contacts[0:4]
-  poly.contacts += [stab.Contact(mu, p, n) for p, n in zip(*lfc())]
+  #poly.contacts = contacts[0:4] + contacts[8:]
+  poly.contacts = contacts[4:]
 
   poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='plain',
                plot_init=False, plot_final=False, plot_step=False,
@@ -49,12 +48,9 @@ def main():
 
   poly.reset()
   poly.contacts = contacts
-  poly.contacts += [stab.Contact(mu, p, n) for p, n in zip(*lfc())]
+  #poly.contacts += [stab.Contact(mu, p, n) for p, n in zip(*lfc())]
 
-  for k in range(4, 8):
-    poly.addForceConstraint(contacts[k:k+1], 1.0)
-
-  point = np.array([[0.36510907, 0.31419711, 0.73607441]]).T
+  #point = np.array([[0.36510907, 0.31419711, 0.73607441]]).T
 
   #poly.addTorqueConstraint(contacts[-4:-2],
   #                         point,
@@ -70,6 +66,9 @@ def main():
 
   #for gravity in gravities:
   #  poly.gravity_envelope = [gravity*s for s in shape]
+
+  for k in range(0, 4):
+    poly.addForceConstraint(contacts[k:k+1], 1.0)
 
   poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='plain',
                plot_init=False, plot_final=False, plot_step=False,
@@ -105,12 +104,12 @@ def main():
   np.savetxt(os.path.join(frame_dir, 'p1'), A)
 
   f = open('top_lel.txt', 'w')
-  nr_tests = 10
-  polygons = []
+  nr_tests = 400
+  plot_stuff = False
   for i in range(nr_tests+1):
     poly.clearConstraints()
     cur_percent = (nr_tests-i)/nr_tests
-    for k in range(4, 8):
+    for k in range(0, 4):
       poly.addForceConstraint(contacts[k:k+1], cur_percent)
 
     poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='plain',
@@ -131,7 +130,7 @@ def main():
     pi = interp.fast_interpolate(j)
     interp_area = pi.area
 
-    nr_iter = 100
+    nr_iter = 0
     while abs(cur_area - interp_area) > 1e-12 and nr_iter < 1000:
       if cur_area > interp_area:
         max_j = j
@@ -149,27 +148,19 @@ def main():
     A = np.array(pi.exterior.coords)
     np.savetxt(os.path.join(frame_dir, fname), A)
 
-    polygons.append(A)
-
     #To watch the log file grow
     f.flush()
     print cur_area - interp_area
 
-    #poly.plot()
-    #poly.ax.plot(*pi.exterior.coords.xy)
-    #poly.show()
+    if plot_stuff:
+      poly.plot()
+      poly.ax.plot(*pi.exterior.coords.xy)
+      poly.show()
 
     #plt.plot(*pi.exterior.coords.xy)
     #plt.show()
   f.close()
 
-  poly.reset_fig()
-  poly.plot_contacts()
-
-  for mat in polygons:
-    x, y = zip(*mat)
-    poly.ax.plot(x, y)
-  poly.show()
   ##A = np.vstack([p.T for p in poly.points])
   #print zip(*A)
   #qhull = ConvexHull(A)

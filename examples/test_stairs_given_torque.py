@@ -59,7 +59,7 @@ def main():
                            np.ones((3, 1)),
                            np.zeros((3, 1)))
 
-  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
+  poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='plain',
                plot_init=False, plot_final=True, plot_step=False,
                plot_direction=False, plot_error=False)
   print "Print area : ", poly.volume_convex(poly.inner)
