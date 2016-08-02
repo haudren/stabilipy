@@ -30,10 +30,10 @@ pos.append(p)
 normals.append(n)
 
 #Top
-p = [[0, 0, 1]]
-n = [[0, 0, 1]]
-pos.append(p)
-normals.append(n)
+#p = [[0, 0, 1]]
+#n = [[0, 0, 1]]
+#pos.append(p)
+#normals.append(n)
 
 pos = [np.array(px).T for px in pos]
 #for p in pos:

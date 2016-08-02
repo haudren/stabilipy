@@ -29,10 +29,15 @@ def main():
   #       np.array([[-0.07, 0.055, -0.105]]).T,
   #       np.array([[0.1, 0.055, -0.105]]).T]
 
-  normals = [np.array([[0, 0, 1]]).T]*3
+  #normals = [np.array([[0, 0, 1]]).T]*3
 
-  pos = [np.array([[0.1, 0, 0]]).T,
-         np.array([[-0.1, 0, 0]]).T,
+  normals = map(stab.normalize,
+                [np.array([[0.5, 0.0, 1]]).T,
+                 np.array([[0.5, 0.0, 1]]).T,
+                 np.array([[0.0, 0.0, 1]]).T])
+
+  pos = [np.array([[0.1, -0.2, 0]]).T,
+         np.array([[-0.1, -0.2, 0]]).T,
          np.array([[0.2, 0, 1]]).T]
 
   bar = sum(pos)/float(len(pos))
@@ -41,9 +46,10 @@ def main():
   mu = 0.5
   contacts = [stab.Contact(mu, p, n) for p, n in zip(pos, normals)]
 
-  poly = stab.StabilityPolygon(60)
+  poly = stab.StabilityPolygon(60, dimension=2)
   poly.contacts = contacts
 
-  poly.compute(1e-5, True, True, True, True)
+  poly.compute(stab.Mode.iteration, epsilon=2e-3, maxIter=10, solver='plain',
+               record_anim=False, plot_step=True, plot_final=False)
 
 main()
