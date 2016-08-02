@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
-from backends import CDDBackend, ParmaBackend, PlainBackend
+from backends import CDDBackend, ParmaBackend, PlainBackend, QhullBackend
 from utils import cross_m, normalize
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
@@ -181,6 +181,7 @@ class StabilityPolygon():
     self.volume_dic = {}
     self.vrep_dic = {}
     self.hrep_dic = {}
+    self.hull_dic = {}
 
     self.directions = []
     self.points = []
@@ -546,30 +547,8 @@ class StabilityPolygon():
            "Terminated in {} state".format(self.sol['status'])]
       raise SteppingException('\n'.join(m))
 
-    self.invalidate_vreps()
-
-  def invalidate_vreps(self):
-    offset = self.offsets[-1]
-    direction = self.directions[-1]
-    keys = []
-
-    for key, vrep in self.vrep_dic.iteritems():
-      try:
-        valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
-      except IndexError as e:
-        print "Error :( "
-        valid = True
-      if not valid:
-        keys.append(key)
-        if key in self.hrep_dic:
-          self.hrep_dic[key].extend(np.hstack((offset, -direction)))
-
-    #print "Invalidating {} keys out of {}".format(len(keys),
-    #                                              len(self.vrep_dic.keys()))
-    #Keys should always be present in both dictionaries !
-    for key in keys:
-      del self.volume_dic[key]
-      del self.vrep_dic[key]
+    if self.dimension == 3:
+      self.invalidate_vreps()
 
   def next_edge(self, plot=False, plot_direction=False,
                 record=False, fname_poly=False, number=0):
@@ -602,6 +581,8 @@ class StabilityPolygon():
       if self.dimension != 2:
         raise ValueError("The plain backend can only be used in 2D")
       self.backend = PlainBackend('scipy')
+    elif solver == 'qhull':
+      self.backend = QhullBackend('scipy')
     else:
       raise ValueError("Only 'cdd' or 'parma' solvers are available")
     self.volume_convex = self.backend.volume_convex
@@ -609,6 +590,9 @@ class StabilityPolygon():
     self.find_direction = partial(self.backend.find_direction, self)
     self.triangulate_polyhedron = self.backend.scipy_triangulate_polyhedron
     self.convexify_polyhedron = self.backend.scipy_convexify_polyhedron
+
+    if self.dimension == 3:
+      self.invalidate_vreps = partial(self.backend.invalidate_vreps, self)
 
   def compute(self, mode, maxIter=100, epsilon=1e-4,
               solver='cdd',

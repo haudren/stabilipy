@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.spatial.qhull import QhullError
 import numpy as np
 
 import hashlib
 import random
+
+import capping
 
 try:
   import cdd
@@ -22,6 +24,49 @@ except ImportError:
   PPL_AVAILABLE = False
 
 from plain_polygon import DoublePolygon
+
+def cdd_invalidate_vreps(backend, poly):
+  offset = poly.offsets[-1]
+  direction = poly.directions[-1]
+  keys = []
+
+  for key, vrep in poly.vrep_dic.iteritems():
+    try:
+      valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
+    except IndexError as e:
+      print "Error :( "
+      valid = True
+    if not valid:
+      keys.append(key)
+      if key in poly.hrep_dic:
+        poly.hrep_dic[key].extend(np.hstack((offset, -direction)))
+
+  for key in keys:
+    if key in poly.hrep_dic:
+      A_e = poly.hrep_dic[key]
+    else:
+      A_e = poly.outer.copy()
+      A_e.extend(cdd.Matrix(-line.reshape(1, line.size)))
+      A_e.canonicalize()
+      poly.hrep_dic[key] = A_e
+      vol = backend.volume_convex(A_e)
+      poly.volume_dic[key] = vol
+      volumes.append(vol)
+      poly.vrep_dic[key] = np.array(cdd.Polyhedron(A_e).get_generators())
+
+def capping_invalidate_vreps(poly):
+  offset = poly.offsets[-1]
+  direction = poly.directions[-1]
+
+  keys = []
+
+  for key, vrep in poly.hull_dic.iteritems():
+    valid = all(offset+vrep.points.dot(direction.T) < 0)
+    if not valid:
+      keys.append(key)
+
+  for key in keys:
+    poly.hull_dic[key] = capping.cap_hull(poly.hull_dic[key], -direction.T, offset)
 
 class SteppingException(Exception):
   def __init__(self, m):
@@ -44,6 +89,7 @@ class CDDBackend(object):
     if not CDD_AVAILABLE:
       raise ValueError("Cannot find cddlib. Make sure you install pycddlib.")
     self.name = 'cdd'
+    self.last_hrep = None
 
     if geomengine == 'scipy':
       self.volume_convex = self.scipy_volume_convex
@@ -72,6 +118,8 @@ class CDDBackend(object):
       poly.outer.rep_type = cdd.RepType.INEQUALITY
     else:
       poly.outer.extend(np.hstack((poly.offsets[-1], -poly.directions[-1])))
+      if self.last_hrep is not None:
+        self.last_hrep.extend(np.hstack((poly.offsets[-1], -poly.directions[-1])))
       poly.outer.canonicalize()
 
     if poly.inner is None:
@@ -121,7 +169,11 @@ class CDDBackend(object):
     alli = [i for i, v in enumerate(volumes) if v == maxv]
     i = random.choice(alli)
     key = hashlib.sha1(ineq[i, :]).hexdigest()
+    self.last_hrep = poly.hrep_dic[key]
     return -ineq[i, 1:]
+
+  def invalidate_vreps(self, poly):
+    cdd_invalidate_vreps(self, poly)
 
   def scipy_triangulate_polyhedron(self, hrep):
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
@@ -210,6 +262,9 @@ class ParmaBackend(object):
     i = random.choice(alli)
     return floatize(-ineq[i, 1:])
 
+  def invalidate_vreps(self, poly):
+    cdd_invalidate_vreps(poly)
+
   def scipy_triangulate_polyhedron(self, poly):
     points = floatize(poly.vrep()[:, 1:])
     ch = ConvexHull(points)
@@ -219,6 +274,99 @@ class ParmaBackend(object):
     points = floatize(poly.vrep()[:, 1:])
     ch = ConvexHull(points)
     return ch.points
+
+class QhullBackend(object):
+
+  """Using the Qhull backend for polygon computation. This is an experimental backend
+  that sould yield better performance. Works on floating-point numbers. Requires scipy."""
+
+  def __init__(self, geomengine='scipy'):
+    """Default constructor.
+
+    :param geomengine: underlying geometry engine. Only scipy is supported
+    """
+
+    self.name = 'qhull'
+    self.last_hrep = None
+    self.feasible_point = None
+    self.feasible_point_str = None
+
+    if geomengine == 'scipy':
+      self.volume_convex = self.scipy_volume_convex
+
+  def scipy_volume_convex(self, hrep):
+   return hrep.volume
+
+  def build_polys(self, poly):
+    if poly.inner is None:
+      A = np.vstack([p.T for p in poly.points])
+      poly.inner = ConvexHull(A, incremental=True)
+      self.feasible_point = np.sum(A, axis=0)/A.shape[0]
+    else:
+      try:
+        poly.inner.add_points(poly.points[-1].T, restart=False)
+      except QhullError:
+        print "Incremental processing failed"
+        A = np.vstack([p.T for p in poly.points])
+        poly.inner = ConvexHull(A, incremental=True)
+
+    if poly.outer is None:
+      if poly.inner is None:
+        raise AssertionError("Inner polygon should have been initialized")
+      A = np.vstack(poly.directions)
+      b = np.vstack(poly.offsets)
+      intersections = HalfspaceIntersection(np.hstack((A, -b)), self.feasible_point)
+      poly.outer = ConvexHull(intersections.intersections)
+    else:
+      poly.outer = capping.cap_hull(poly.outer, -poly.directions[-1].T, poly.offsets[-1])
+
+  def find_direction(self, poly, plot=False):
+    self.build_polys(poly)
+
+    volumes = []
+
+    ineq = poly.inner.equations
+
+    for line in ineq:
+      key = hashlib.sha1(line).hexdigest()
+      if key in poly.volume_dic:
+        volumes.append(poly.hull_dic[key].volume)
+      else:
+        #TODO: How to compute outer initial vrep ?
+        # We use CDD for now, but is there any way to get
+        # initial feasible point ?
+
+        A_e = cdd.Matrix(np.hstack((-poly.outer.equations[:, -1:],
+                                    -poly.outer.equations[:, :-1])))
+        A_e.rep_type = cdd.RepType.INEQUALITY
+        m = np.hstack((line[-1:], line[:-1]))
+        A_e.extend(cdd.Matrix(m.reshape((1, m.size))))
+        points = np.array(cdd.Polyhedron(A_e).get_generators())[:, 1:]
+
+        poly.hull_dic[key] = ConvexHull(points)
+
+        if plot:
+          poly.reset_fig()
+          poly.plot_polyhedrons()
+          poly.plot_polyhedron(poly.hull_dic[key], 'm', 0.5)
+          poly.show()
+
+        volumes.append(poly.hull_dic[key].volume)
+
+    maxv = max(volumes)
+    alli = [i for i, v in enumerate(volumes) if v == maxv]
+    i = random.choice(alli)
+    return ineq[i, :-1]
+
+  def invalidate_vreps(self, poly):
+    capping_invalidate_vreps(poly)
+
+  def scipy_triangulate_polyhedron(self, hrep):
+    return [c for c in hrep.points.T], hrep.simplices
+
+  def scipy_convexify_polyhedron(self, hrep):
+    return hrep.points
+
 
 class PlainBackend(object):
 
