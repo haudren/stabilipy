@@ -1,6 +1,6 @@
 variables:
   CI_TOOL: gitlab-ci
-  APT_DEPENDENCIES: "python python-pip python-virtualenv python-numpy python-matplotlib python-dev liblapack-dev libatlas-dev libblas-dev libgmp-dev python-cvxopt cython libppl-dev"
+  APT_DEPENDENCIES: "python python-pip python-virtualenv python-numpy python-matplotlib python-dev python-nose liblapack-dev libatlas-dev libblas-dev libgmp-dev python-cvxopt cython libppl-dev"
 
 before_script:
   - git submodule update --quiet --init --recursive
