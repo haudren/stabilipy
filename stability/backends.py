@@ -3,12 +3,11 @@
 
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.spatial.qhull import QhullError
+from scipy.optimize import linprog
 import numpy as np
 
 import hashlib
 import random
-
-import capping
 
 try:
   import cdd
@@ -54,6 +53,32 @@ def cdd_invalidate_vreps(backend, poly):
       volumes.append(vol)
       poly.vrep_dic[key] = np.array(cdd.Polyhedron(A_e).get_generators())
 
+def parma_invalidate_vreps(backend, poly):
+  offset = poly.offsets[-1]
+  direction = poly.directions[-1]
+  keys = []
+
+  for key, vrep in poly.vrep_dic.iteritems():
+    try:
+      valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
+    except IndexError as e:
+      print "Error :( "
+      valid = True
+    if not valid:
+      keys.append(key)
+      if key in poly.hrep_dic:
+        poly.hrep_dic[key].add_ineq(fractionize(np.hstack((offset, -direction))))
+
+  for key in keys:
+    if not key in poly.hrep_dic:
+      A_e = poly.outer.copy()
+      A_e.add_ineq(-line)
+      vol = self.volume_convex(A_e)
+      poly.volume_dic[key] = vol
+      volumes.append(vol)
+      poly.vrep_dic[key] = A_e.vrep()
+      poly.hrep_dic[key] = A_e
+
 def capping_invalidate_vreps(poly):
   offset = poly.offsets[-1]
   direction = poly.directions[-1]
@@ -66,7 +91,15 @@ def capping_invalidate_vreps(poly):
       keys.append(key)
 
   for key in keys:
-    poly.hull_dic[key] = capping.cap_hull(poly.hull_dic[key], -direction.T, offset)
+    hs = np.zeros((1, poly.outer.halfspaces.shape[1]))
+    hs[:, :-1] = poly.directions[-1]
+    hs[:, -1] = -poly.offsets[-1]
+    try:
+      poly.hrep_dic[key].add_halfspaces(hs)
+      poly.hull_dic[key] = ConvexHull(poly.hrep_dic[key].intersections)
+    except QhullError:
+      del poly.hrep_dic[key]
+      del poly.hull_dic[key]
 
 class SteppingException(Exception):
   def __init__(self, m):
@@ -105,7 +138,7 @@ class CDDBackend(object):
     if points.shape[0] < points.shape[1]+1:
       return 0
     try:
-      ch = ConvexHull(points, qhull_options='QbB')
+      ch = ConvexHull(points)
     except QhullError:
       return 0
     return ch.volume
@@ -177,12 +210,12 @@ class CDDBackend(object):
 
   def scipy_triangulate_polyhedron(self, hrep):
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-    ch = ConvexHull(points, qhull_options='QbB')
+    ch = ConvexHull(points)
     return [c for c in ch.points.T], ch.simplices
 
   def scipy_convexify_polyhedron(self, hrep):
     points = np.array(cdd.Polyhedron(hrep).get_generators())[:, 1:]
-    ch = ConvexHull(points, qhull_options='QbB')
+    ch = ConvexHull(points)
     return ch.points
 
 class ParmaBackend(object):
@@ -249,6 +282,7 @@ class ParmaBackend(object):
         vol = self.volume_convex(A_e)
         poly.volume_dic[key] = vol
         volumes.append(vol)
+        poly.hrep_dic[key] = A_e
         poly.vrep_dic[key] = A_e.vrep()
 
       if plot:
@@ -263,7 +297,7 @@ class ParmaBackend(object):
     return floatize(-ineq[i, 1:])
 
   def invalidate_vreps(self, poly):
-    cdd_invalidate_vreps(poly)
+    parma_invalidate_vreps(self, poly)
 
   def scipy_triangulate_polyhedron(self, poly):
     points = floatize(poly.vrep()[:, 1:])
@@ -295,7 +329,9 @@ class QhullBackend(object):
       self.volume_convex = self.scipy_volume_convex
 
   def scipy_volume_convex(self, hrep):
-   return hrep.volume
+    if isinstance(hrep, HalfspaceIntersection):
+      return ConvexHull(hrep.intersections).volume
+    return hrep.volume
 
   def build_polys(self, poly):
     if poly.inner is None:
@@ -315,10 +351,12 @@ class QhullBackend(object):
         raise AssertionError("Inner polygon should have been initialized")
       A = np.vstack(poly.directions)
       b = np.vstack(poly.offsets)
-      intersections = HalfspaceIntersection(np.hstack((A, -b)), self.feasible_point)
-      poly.outer = ConvexHull(intersections.intersections)
+      poly.outer = HalfspaceIntersection(np.hstack((A, -b)), self.feasible_point, incremental=True)
     else:
-      poly.outer = capping.cap_hull(poly.outer, -poly.directions[-1].T, poly.offsets[-1])
+      hs = np.zeros((1, poly.outer.halfspaces.shape[1]))
+      hs[:, :-1] = poly.directions[-1]
+      hs[:, -1] = -poly.offsets[-1]
+      poly.outer.add_halfspaces(hs)
 
   def find_direction(self, poly, plot=False):
     self.build_polys(poly)
@@ -329,29 +367,42 @@ class QhullBackend(object):
 
     for line in ineq:
       key = hashlib.sha1(line).hexdigest()
-      if key in poly.volume_dic:
+      if key in poly.hull_dic:
         volumes.append(poly.hull_dic[key].volume)
       else:
         #TODO: How to compute outer initial vrep ?
         # We use CDD for now, but is there any way to get
         # initial feasible point ?
 
-        A_e = cdd.Matrix(np.hstack((-poly.outer.equations[:, -1:],
-                                    -poly.outer.equations[:, :-1])))
-        A_e.rep_type = cdd.RepType.INEQUALITY
-        m = np.hstack((line[-1:], line[:-1]))
-        A_e.extend(cdd.Matrix(m.reshape((1, m.size))))
-        points = np.array(cdd.Polyhedron(A_e).get_generators())[:, 1:]
+        #A_e = cdd.Matrix(np.hstack((-poly.outer.equations[:, -1:],
+        #                            -poly.outer.equations[:, :-1])))
+        #A_e.rep_type = cdd.RepType.INEQUALITY
+        #m = np.hstack((line[-1:], line[:-1]))
+        #A_e.extend(cdd.Matrix(m.reshape((1, m.size))))
+        #points = np.array(cdd.Polyhedron(A_e).get_generators())[:, 1:]
 
-        poly.hull_dic[key] = ConvexHull(points)
+        A_e = np.vstack((poly.outer.halfspaces, -line))
+        c = np.zeros((A_e.shape[1],))
+        c[-1] = -1
+        res = linprog(c, A_ub=np.hstack((A_e[:, :-1], np.ones((A_e.shape[0], 1)))),
+            b_ub=-A_e[:, -1:], bounds=(None, None))
+        if res.success:
+          feasible_point = res.x[:-1]
+          try:
+            poly.hrep_dic[key] = HalfspaceIntersection(A_e, feasible_point, incremental=True)
+            poly.hull_dic[key] = ConvexHull(poly.hrep_dic[key].intersections)
+            volumes.append(poly.hull_dic[key].volume)
+          except QhullError:
+            volumes.append(0.)
+        else:
+          print "Error : {}".format(res.message)
+          volumes.append(0.)
 
-        if plot:
+        if plot and res.success:
           poly.reset_fig()
           poly.plot_polyhedrons()
           poly.plot_polyhedron(poly.hull_dic[key], 'm', 0.5)
           poly.show()
-
-        volumes.append(poly.hull_dic[key].volume)
 
     maxv = max(volumes)
     alli = [i for i, v in enumerate(volumes) if v == maxv]
@@ -362,10 +413,16 @@ class QhullBackend(object):
     capping_invalidate_vreps(poly)
 
   def scipy_triangulate_polyhedron(self, hrep):
-    return [c for c in hrep.points.T], hrep.simplices
+    vrep = hrep
+    if isinstance(hrep, HalfspaceIntersection):
+      vrep = ConvexHull(hrep.intersections)
+    return [c for c in vrep.points.T], vrep.simplices
 
   def scipy_convexify_polyhedron(self, hrep):
-    return hrep.points
+    vrep = hrep
+    if isinstance(hrep, HalfspaceIntersection):
+      vrep = ConvexHull(hrep.intersections)
+    return vrep.points
 
 
 class PlainBackend(object):
