@@ -711,6 +711,10 @@ class StabilityPolygon():
     p = self.convexify_polyhedron(self.inner)
     return p
 
+  def outer_polyhedron(self):
+    """Return the outer polyhedron as a set of points"""
+    return self.convexify_polyhedron(self.outer)
+
   def save_polyhedron(self, fname):
     np.savetxt(fname, self.polyhedron())
 
