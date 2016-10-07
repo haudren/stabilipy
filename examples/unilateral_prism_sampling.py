@@ -43,11 +43,12 @@ def main(margin):
 
 
   prisms.plot()
-  prisms.show()
   #polyhedron.plot()
 
-  #polyhedron.ax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
-  #polyhedron.ax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
+  prisms.threedax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
+  prisms.threedax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
+
+  prisms.show()
 
   #polyhedron.show()
 
