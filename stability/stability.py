@@ -304,15 +304,49 @@ class StabilityPolygon():
       return True
     return False
 
-  def sample(self, p):
-    self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
-    if self.sol['status'] == 'optimal':
-      vec = np.array(self.sol['x'])
-      self.com = p
-      nrForces = len(self.contacts)*len(self.gravity_envelope)
-      self.forces = vec.reshape((nrForces, 3)).T
-      return True
-    return False
+  def sample(self, p, plot_final=True, plot_step=False):
+    nrIter = 0
+    p_t = p.reshape((p.size, 1))
+    while nrIter < 50:
+      if self.backend.inside(self, p):
+        if plot_final:
+          self.plot()
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+        return True
+      elif self.backend.outside(self, p):
+        if plot_final:
+          self.plot()
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+        return False
+      else:
+        direction = self.backend.find_point_direction(self, p)
+        self.step(direction.T)
+        self.build_polys()
+        if plot_step:
+          self.plot()
+          #TODO: Size independent plotting
+          x, y, z = p
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+      nrIter += 1
+    raise SteppingException("Too many steps")
+
+    #self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
+    #if self.sol['status'] == 'optimal':
+    #  vec = np.array(self.sol['x'])
+    #  self.com = p
+    #  nrForces = len(self.contacts)*len(self.gravity_envelope)
+    #  self.forces = vec.reshape((nrForces, 3)).T
+    #  return True
+    #return False
 
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
@@ -667,6 +701,10 @@ class StabilityPolygon():
         failure = True
         break
       error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
+      self.printer("{} - {} = {} ".format(self.volume_convex(self.outer),
+                                          self.volume_convex(self.inner),
+                                          error),
+                   Verbosity.debug)
       self.printer(error, Verbosity.info)
       sys.stdout.flush()
 

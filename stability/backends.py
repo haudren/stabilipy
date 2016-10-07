@@ -312,7 +312,7 @@ class ParmaBackend(object):
 class QhullBackend(object):
 
   """Using the Qhull backend for polygon computation. This is an experimental backend
-  that sould yield better performance. Works on floating-point numbers. Requires scipy."""
+  that should yield better performance. Works on floating-point numbers. Requires scipy."""
 
   def __init__(self, geomengine='scipy'):
     """Default constructor.
@@ -330,7 +330,10 @@ class QhullBackend(object):
 
   def scipy_volume_convex(self, hrep):
     if isinstance(hrep, HalfspaceIntersection):
-      return ConvexHull(hrep.intersections).volume
+      try:
+        return ConvexHull(hrep.intersections).volume
+      except QhullError:
+        return 0
     return hrep.volume
 
   def build_polys(self, poly):
@@ -356,7 +359,24 @@ class QhullBackend(object):
       hs = np.zeros((1, poly.outer.halfspaces.shape[1]))
       hs[:, :-1] = poly.directions[-1]
       hs[:, -1] = -poly.offsets[-1]
-      poly.outer.add_halfspaces(hs)
+      try:
+        poly.outer.add_halfspaces(hs)
+      except QhullError:
+        print "Incremental halfspaces failed"
+        A = np.vstack(poly.directions)
+        b = np.vstack(poly.offsets)
+
+        c = np.zeros((A.shape[1],))
+        c[-1] = -1
+
+        res = linprog(c, A_ub=np.hstack((A[:, :-1], np.ones((A.shape[0], 1)))),
+            b_ub=-A[:, -1:], bounds=(None, None))
+        if res.success:
+          self.feasible_point = res.x[:-1]
+        else:
+          raise RuntimeError("No interior point found")
+
+        poly.outer = HalfspaceIntersection(np.hstack((A, -b)), self.feasible_point, incremental=True)
 
   def find_direction(self, poly, plot=False):
     self.build_polys(poly)
@@ -409,6 +429,15 @@ class QhullBackend(object):
     i = random.choice(alli)
     return ineq[i, :-1]
 
+  def find_point_direction(self, poly, point):
+    normals, offset = poly.inner.equations[:, :-1], poly.inner.equations[:, -1]
+    outside =  (normals.dot(point)+offset) > 0
+    if np.sum(outside) == 0:
+      raise ValueError("The point is inside!")
+    else:
+      i = random.choice(np.argwhere(outside))
+      return normals[i, :]
+
   def invalidate_vreps(self, poly):
     capping_invalidate_vreps(poly)
 
@@ -424,6 +453,13 @@ class QhullBackend(object):
       vrep = ConvexHull(hrep.intersections)
     return vrep.points
 
+  def inside(self, poly, point):
+    normals, offset = poly.inner.equations[:, :-1], poly.inner.equations[:, -1]
+    return ((normals.dot(point)+offset) <= 0).all()
+
+  def outside(self, poly, point):
+    normals, offset = poly.outer.halfspaces[:, :-1], poly.outer.halfspaces[:, -1]
+    return ((normals.dot(point)+offset) >= 0).any()
 
 class PlainBackend(object):
 
@@ -456,7 +492,7 @@ class PlainBackend(object):
     return ch.volume
 
   def build_polys(self, poly):
-    if poly.outer is None or poly.inner is None:
+    if poly.outer is None or poly.inner is None or self.edge_i is None:
       poly.outer = None
       poly.inner = None
       self.doublepoly = None
@@ -530,3 +566,25 @@ class PlainBackend(object):
     points = poly.vertices
     ch = ConvexHull(points)
     return ch.points
+
+  def inside(self, poly, point):
+    ineqs = self.doublepoly.inner.inequalities
+    normals, offset = ineqs[:, 1:], ineqs[:, 0]
+    return ((normals.dot(point)+offset) >= 0).all()
+
+  def outside(self, poly, point):
+    ineqs = self.doublepoly.outer.inequalities
+    normals, offset = ineqs[:, 1:], ineqs[:, 0]
+    return ((normals.dot(point)+offset) < 0).any()
+
+  def find_point_direction(self, poly, point):
+    ineqs = self.doublepoly.inner.inequalities
+    normals, offset = ineqs[:, 1:], ineqs[:, 0]
+
+    outside =  (normals.dot(point)+offset) < 0
+    if np.sum(outside) == 0:
+      raise ValueError("The point is inside!")
+    else:
+      i = random.choice(np.argwhere(outside)).item(0)
+      self.edge_i = i
+      return -normals[i:i+1, :]
