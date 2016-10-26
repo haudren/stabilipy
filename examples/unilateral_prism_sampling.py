@@ -18,39 +18,35 @@ def main(margin):
 
   contacts[2].mu = 0.5
 
-
-  polyhedron = stab.StabilityPolygon(200, dimension=3, radius=1.5)
-  polyhedron.contacts = contacts
-
   shape = [
               np.array([[-1., 0, 0]]).T,
               np.array([[1., 0, 0]]).T,
               np.array([[0, 1., 0]]).T,
               np.array([[0, -1., 0]]).T,
-              np.array([[1, -1., 0]]).T/np.sqrt(2),
+              #np.array([[1, -1., 0]]).T/np.sqrt(2),
           ]
 
   polytope = [margin*s for s in shape]
 
   prisms = stab.PrismIntersection(200, polytope, contacts, radius=1.5)
 
-  polyhedron.gravity_envelope = polytope
-  polyhedron.compute(stab.Mode.best, epsilon=1e-3, maxIter=10, solver='qhull', plot_final=False)
+  points = np.array([1., 1., 3.])*(np.random.random((100000,3)) - 0.5)
+  np.savetxt('random_points.txt', points)
+  #points = np.loadtxt('random_points.txt')
 
-  points = 3*(np.random.random((10000,3)) - 0.5)
-  truths = np.array([prisms.sample(point)
-                      for point in points])
-
+  truths, iters = zip(*[prisms.sample(point)
+                        for point in points])
+  truths = np.array(truths)
 
   prisms.plot()
-  #polyhedron.plot()
+  polyhedron.plot()
+
+  print("total iters: {}".format(np.sum(iters)))
 
   prisms.threedax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
   prisms.threedax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
 
   prisms.show()
-
-  #polyhedron.show()
 
 print "Margin : {}".format(sys.argv[1])
 
