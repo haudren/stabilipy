@@ -315,7 +315,7 @@ class StabilityPolygon():
                         marker='o', alpha=0.6,
                         markersize=10, markerfacecolor='red')
           self.show()
-        return True
+        return True, nrIter
       elif self.backend.outside(self, p):
         if plot_final:
           self.plot()
@@ -323,15 +323,13 @@ class StabilityPolygon():
                         marker='o', alpha=0.6,
                         markersize=10, markerfacecolor='red')
           self.show()
-        return False
+        return False, nrIter
       else:
         direction = self.backend.find_point_direction(self, p)
         self.step(direction.T)
         self.build_polys()
         if plot_step:
           self.plot()
-          #TODO: Size independent plotting
-          x, y, z = p
           self.ax.plot(*p_t, linestyle="none",
                         marker='o', alpha=0.6,
                         markersize=10, markerfacecolor='red')

@@ -57,14 +57,15 @@ class PrismIntersection():
     if not self.initialized:
       self.initialize()
 
-    assert(point.shape == (3,))
+    trans_p = [point[:2] + point.item(2)*np.array([s[0,0], s[1,0]])/(s[2]+9.81) for s in self.polytope]
+    res = [polygon.sample(pi, plot_final=False) for pi, polygon in zip(trans_p, self.polygons)]
 
-    res = []
-    for s, polygon in zip(self.polytope, self.polygons):
-      trans_p = point[:2] + point.item(2)*np.array([s[0,0], s[1,0]])/(s[2]+9.81)
-      res.append(polygon.sample(trans_p, plot_final=False))
+    #for s, polygon in zip(self.polytope, self.polygons):
+    #  trans_p = 
+    #  res.append(polygon.sample(trans_p, plot_final=False))
+    truths, iters = zip(*res)
 
-    return all(res)
+    return all(truths), sum(iters)
 
   def polyhedron(self):
     self.prisms = []
@@ -76,6 +77,17 @@ class PrismIntersection():
       self.prisms.append(ConvexHull(np.vstack((top, bot))))
 
     return _intersect(self.prisms)
+
+  def outer_polyhedron(self):
+    self.outer_prisms = []
+    for s, polygon in zip(self.polytope, self.polygons):
+      points = ConvexHull(polygon.outer_polyhedron()).points
+      origin = np.array([[-s[0]/(s[2]+9.81), -s[1]/(s[2]+9.81), 1]])
+      top = np.hstack((points, np.zeros((points.shape[0], 1)))) + self.radius*origin
+      bot = np.hstack((points, np.zeros((points.shape[0], 1)))) - self.radius*origin
+      self.outer_prisms.append(ConvexHull(np.vstack((top, bot))))
+
+    return _intersect(self.outer_prisms)
 
   def plot(self):
     self.figure = plt.figure()
