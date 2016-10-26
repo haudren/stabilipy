@@ -324,6 +324,8 @@ class QhullBackend(object):
     self.last_hrep = None
     self.feasible_point = None
     self.feasible_point_str = None
+    self.find_point_direction = self.find_point_random_direction
+    #self.find_point_direction = self.find_point_volume_direction
 
     if geomengine == 'scipy':
       self.volume_convex = self.scipy_volume_convex
@@ -429,7 +431,7 @@ class QhullBackend(object):
     i = random.choice(alli)
     return ineq[i, :-1]
 
-  def find_point_direction(self, poly, point):
+  def find_point_random_direction(self, poly, point):
     normals, offset = poly.inner.equations[:, :-1], poly.inner.equations[:, -1]
     outside =  (normals.dot(point)+offset) > 0
     if np.sum(outside) == 0:
@@ -437,6 +439,53 @@ class QhullBackend(object):
     else:
       i = random.choice(np.argwhere(outside))
       return normals[i, :]
+
+  def find_point_volume_direction(self, poly, point):
+    normals, offset = poly.inner.equations[:, :-1], poly.inner.equations[:, -1]
+    outside =  (normals.dot(point)+offset) > 0
+    if np.sum(outside) == 0:
+      raise ValueError("The point is inside!")
+    else:
+      volumes = {}
+      for i in np.argwhere(outside):
+        index = i.item(0)
+        line = poly.inner.equations[i, :]
+        key = hashlib.sha1(line).hexdigest()
+        if key in poly.hull_dic:
+          volumes[index] = poly.hull_dic[key].volume
+        else:
+          #TODO: How to compute outer initial vrep ?
+          # We use CDD for now, but is there any way to get
+          # initial feasible point ?
+
+          #A_e = cdd.Matrix(np.hstack((-poly.outer.equations[:, -1:],
+          #                            -poly.outer.equations[:, :-1])))
+          #A_e.rep_type = cdd.RepType.INEQUALITY
+          #m = np.hstack((line[-1:], line[:-1]))
+          #A_e.extend(cdd.Matrix(m.reshape((1, m.size))))
+          #points = np.array(cdd.Polyhedron(A_e).get_generators())[:, 1:]
+
+          A_e = np.vstack((poly.outer.halfspaces, -line))
+          c = np.zeros((A_e.shape[1],))
+          c[-1] = -1
+          res = linprog(c, A_ub=np.hstack((A_e[:, :-1], np.ones((A_e.shape[0], 1)))),
+              b_ub=-A_e[:, -1:], bounds=(None, None))
+          if res.success:
+            feasible_point = res.x[:-1]
+            try:
+              poly.hrep_dic[key] = HalfspaceIntersection(A_e, feasible_point, incremental=True)
+              poly.hull_dic[key] = ConvexHull(poly.hrep_dic[key].intersections)
+              volumes[index] = poly.hull_dic[key].volume
+            except QhullError:
+              volumes[index] = 0.
+          else:
+            print "Error : {}".format(res.message)
+            volumes[index] = .0
+
+      maxv = max(volumes.values())
+      alli = [i for i, v in volumes.iteritems() if v == maxv]
+      i = random.choice(alli)
+      return normals[i:i+1, :]
 
   def invalidate_vreps(self, poly):
     capping_invalidate_vreps(poly)
