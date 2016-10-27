@@ -58,14 +58,18 @@ class PrismIntersection():
       self.initialize()
 
     trans_p = [point[:2] + point.item(2)*np.array([s[0,0], s[1,0]])/(s[2]+9.81) for s in self.polytope]
-    res = [polygon.sample(pi, plot_final=False) for pi, polygon in zip(trans_p, self.polygons)]
 
-    #for s, polygon in zip(self.polytope, self.polygons):
-    #  trans_p = 
-    #  res.append(polygon.sample(trans_p, plot_final=False))
-    truths, iters = zip(*res)
+    iters = 0
+    for res in self._sample(trans_p):
+      iters += res[1]
+      if not res[0]:
+        return False, iters
 
-    return all(truths), sum(iters)
+    return True, iters
+
+  def _sample(self, trans_p):
+    for pi, polygon in zip(trans_p, self.polygons):
+      yield polygon.sample(pi, plot_final=False)
 
   def polyhedron(self):
     self.prisms = []
