@@ -69,7 +69,7 @@ class StabilityPolygon():
   cones. In 3D, computes a robust static stability polyhedron."""
 
   def __init__(self, robotMass, dimension=3, gravity=-9.81,
-               radius=2., force_lim=1., robust_sphere=-1):
+               radius=2., force_lim=1., robust_sphere=-1, height=0.):
     """The default constructor to build a polygon/polyhedron.
 
     :param robotMass: Mass of the robot
@@ -77,8 +77,14 @@ class StabilityPolygon():
     :param gravity: Intensity of gravity given along upwards z-axis.
     :param radius: Radius of the CoM limitation constraint.
     :param force_lim: Maximum force, expressed as a factor of the robot's weight.
+    :param robust_sphere: Robust radius to be used with spherical criterion. Negative disables
+    :param height: Height to be used when doing 2D robust
     :type dimension: 2,3
     :type gravity: double
+    :type radius: double
+    :type force_lim: double
+    :type robust_sphere: double
+    :type height: double
     """
     solvers.options['show_progress'] = False
     self.contacts = []
@@ -103,12 +109,14 @@ class StabilityPolygon():
               ]
       self.gravity_envelope = [0.45*s for s in shape]
       self.proj = np.eye(3)
+      self.height = 0.
 
     elif dimension == 2:
       self.gravity_envelope = [
           np.array([[0.0, 0.0, 0.0]]).T
                               ]
       self.proj = np.array([[1, 0, 0], [0, 1, 0]])
+      self.height = height
     else:
       raise ValueError("Dimension can only be 2 or 3")
 
@@ -283,8 +291,9 @@ class StabilityPolygon():
     return np.vstack([np.zeros((3, self.size_z())),
                       -cross_m(self.mass*gravity).dot(self.proj.T)])
 
-  def computeT(self, gravity):
-    return np.vstack([-self.mass*gravity, np.array([[0], [0], [0]])])
+  def computeT(self, gravity, height=0):
+    momentum = cross_m(self.mass*gravity).dot(np.array([[0], [0], [height]]))
+    return np.vstack([-self.mass*gravity, momentum])
 
   def check_sizes(self):
     assert(self.A1.shape[1]*len(self.gravity_envelope)
@@ -365,7 +374,7 @@ class StabilityPolygon():
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
 
-    T = np.vstack([self.computeT(self.gravity+e)
+    T = np.vstack([self.computeT(self.gravity+e, height=self.height)
                    for e in self.gravity_envelope])
 
     A = matrix(np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))]))
