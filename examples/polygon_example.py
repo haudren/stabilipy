@@ -68,7 +68,8 @@ def main(n, alphas):
   points = polygon.inner.vertices
   hull = ConvexHull(points)
 
-  polygon.ax.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+  vertices = np.hstack((hull.vertices, hull.vertices[0]))
+  polygon.ax.plot(points[vertices,0], points[vertices,1], 'r--', lw=2)
 
   shrink_points = []
   seq = CircularBuffer(point_seq(n))

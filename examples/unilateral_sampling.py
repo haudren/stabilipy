@@ -42,9 +42,15 @@ def main(margin):
   #polyhedron2.gravity_envelope = polytope
   #polyhedron2.compute(stab.Mode.best, epsilon=1e-3, maxIter=100, solver='cdd', plot_final=False)
 
-  points = 3*(np.random.random((100000,3)) - 0.5)
-  truths = np.array([polyhedron.sample(point, plot_final=False, plot_step=False)
+  points = np.array([1.,1.,3.])*(np.random.random((10**3,3)) - 0.5)
+  #np.savetxt('random_points.txt', points)
+  #points = np.loadtxt('random_points.txt')
+
+  truths, nrIter = zip(*[polyhedron.sample(point, plot_final=False, plot_step=False)
                       for point in points])
+  truths = np.array(truths)
+
+  print(sum(nrIter))
 
   polyhedron.plot()
   #polyhedron2.ax = polyhedron.ax
@@ -55,6 +61,12 @@ def main(margin):
 
   polyhedron.show()
 
-print "Margin : {}".format(sys.argv[1])
+  A = np.vstack((
+      np.array(range(points.shape[0])),
+      np.cumsum(np.array(nrIter))))
+
+  np.savetxt('nr_iter.txt', A.T)
+
+print("Margin : {}".format(sys.argv[1]))
 
 main(float(sys.argv[1]))

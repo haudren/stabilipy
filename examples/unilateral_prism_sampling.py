@@ -30,23 +30,22 @@ def main(margin):
 
   prisms = stab.PrismIntersection(200, polytope, contacts, radius=1.5)
 
-  points = np.array([1., 1., 3.])*(np.random.random((100000,3)) - 0.5)
+  points = np.array([1., 1., 3.])*(np.random.random((10**6,3)) - 0.5)
   np.savetxt('random_points.txt', points)
   #points = np.loadtxt('random_points.txt')
 
   truths, iters = zip(*[prisms.sample(point)
                         for point in points])
-  truths = np.array(truths)
+  #truths = np.array(truths)
 
-  prisms.plot()
-  polyhedron.plot()
+  #prisms.plot()
 
   print("total iters: {}".format(np.sum(iters)))
 
-  prisms.threedax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
-  prisms.threedax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
+  #prisms.threedax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
+  #prisms.threedax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
 
-  prisms.show()
+  #prisms.show()
 
 print "Margin : {}".format(sys.argv[1])
 

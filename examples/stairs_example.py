@@ -38,12 +38,14 @@ def main():
 
   #Foot
   poly.addDistConstraint(bar1, 1.5)
+
+  print bar1
   #Hand
   poly.addDistConstraint(bar2, 1.5)
 
-  sol = 'cdd'
+  sol = 'qhull'
 
-  poly.compute(stab.Mode.iteration, maxIter=20, epsilon=2e-3,
+  poly.compute(stab.Mode.iteration, maxIter=10, epsilon=2e-3,
                solver=sol, plot_error=False, plot_step=False,
                plot_init=False, plot_final=True)
 
