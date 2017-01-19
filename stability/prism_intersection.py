@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 def _make_polygon(mass, gravity, contacts, radius):
   polygon = stability.StabilityPolygon(mass, dimension=2, radius=radius)
   polygon.contacts = contacts
-  polygon.gravity_envelope = gravity
+  polygon.gravity_envelope = [gravity]
   return polygon
 
 def feasible_point(A):
