@@ -614,12 +614,14 @@ class PlainBackend(object):
   def scipy_convexify_polyhedron(self, poly):
     points = poly.vertices
     ch = ConvexHull(points)
-    return ch.points
+    return ch.points[ch.vertices, :]
 
   def inside(self, poly, point):
-    ineqs = self.doublepoly.inner.inequalities
-    normals, offset = ineqs[:, 1:], ineqs[:, 0]
-    return ((normals.dot(point)+offset) >= 0).all()
+    #ineqs = self.doublepoly.inner.inequalities
+    #normals, offset = ineqs[:, 1:], ineqs[:, 0]
+    #pt = np.hstack((np.array([1]), point))
+    #return (self.doublepoly.inner.inequalities.dot(pt) >= 0).all()
+    return ((self.doublepoly.inner.inequalities[:, 1:].dot(point)+self.doublepoly.inner.inequalities[:, 0]) >= 0).all()
 
   def outside(self, poly, point):
     ineqs = self.doublepoly.outer.inequalities

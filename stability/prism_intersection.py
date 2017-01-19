@@ -1,6 +1,7 @@
 import stability
 import numpy as np
 from scipy.spatial import ConvexHull, HalfspaceIntersection
+from scipy.optimize import linprog
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -11,12 +12,24 @@ def _make_polygon(mass, gravity, contacts, radius):
   polygon.gravity_envelope = gravity
   return polygon
 
+def feasible_point(A):
+  c = np.zeros((A.shape[1],))
+  c[-1] = -1
+
+  res = linprog(c, A_ub=np.hstack((A[:, :-1], np.ones((A.shape[0], 1)))),
+      b_ub=-A[:, -1:], bounds=(None, None))
+  if res.success:
+    return res.x[:-1]
+  else:
+    raise RuntimeError("No interior point found")
+
 def _intersect(hulls, feas_point=None):
   all_eq = np.vstack([h.equations for h in hulls])
 
   if feas_point is None:
-    points = np.vstack([h.points[h.vertices, :] for h in hulls])
-    feas_point = np.sum(points, axis=0)/points.shape[0]
+    #points = np.vstack([h.points[h.vertices, :] for h in hulls])
+    #feas_point = np.sum(points, axis=0)/points.shape[0]
+    feas_point = feasible_point(all_eq)
 
   intersected = ConvexHull(HalfspaceIntersection(all_eq, feas_point).intersections)
   return intersected
