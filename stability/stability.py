@@ -678,6 +678,7 @@ class StabilityPolygon():
 
     error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
     nrSteps = 0
+    self.nrSteps = nrSteps
 
     if plot_error:
       self.fig_error = plt.figure()
@@ -718,6 +719,7 @@ class StabilityPolygon():
       sys.stdout.flush()
 
       nrSteps += 1
+      self.nrSteps = nrSteps
       if plot_error:
         self.line_error.set_xdata(np.append(self.line_error.get_xdata(),
                                             nrSteps))
