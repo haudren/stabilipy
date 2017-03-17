@@ -100,6 +100,8 @@ class StabilityPolygon():
     self.printer = Printer(Verbosity.info)
     self.robust_sphere = robust_sphere
 
+    self.nrSteps = 0
+
     if dimension == 3:
       shape = [
                   np.array([[-1., 0, 0]]).T,
@@ -369,7 +371,7 @@ class StabilityPolygon():
 
     #Max a^T z ~ min -a^T z
     #Final cost : min -a^T z + s
-    c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a, np.zeros((self.size_s(), 1))]))
+    c = np.vstack([np.zeros((self.size_x(), 1)), -a, np.zeros((self.size_s(), 1))])
     A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
@@ -377,7 +379,7 @@ class StabilityPolygon():
     T = np.vstack([self.computeT(self.gravity+e, height=self.height)
                    for e in self.gravity_envelope])
 
-    A = matrix(np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))]))
+    A = np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))])
 
     g_s = []
     h_s = []
@@ -441,8 +443,8 @@ class StabilityPolygon():
     g = np.vstack(g_s)
     h = np.vstack(h_s)
 
-    sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
-                         A=A, b=matrix(T), dims=dims)
+    sol = solvers.conelp(matrix(c), G=matrix(g), h=matrix(h),
+                         A=matrix(A), b=matrix(T), dims=dims)
     return sol
 
   def socp(self, a, A1, A2, t, B_s, u_s):
