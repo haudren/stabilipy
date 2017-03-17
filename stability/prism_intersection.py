@@ -60,6 +60,18 @@ class PrismIntersection():
 
     self.initialized = True
 
+  def addTorqueConstraint(self, begin, end, point, ub, lb=None):
+    """Add a limit on torque at a point over a set of contacts defined by
+    begin:end """
+    for polygon in self.polygons:
+      polygon.addTorqueConstraint(polygon.contacts[begin:end], point, ub, lb)
+
+  def addForceConstraint(self, begin, end, flim):
+    """Add a limit on sum of forces over a set of contacts defined by
+    begin:end """
+    for polygon in self.polygons:
+      polygon.addForceConstraint(polygon.contacts[begin:end], flim)
+
   def compute(self, mode, epsilon, maxIter):
     for polygon in self.polygons:
       polygon.compute(mode, epsilon=epsilon, maxIter=maxIter, solver='plain',
