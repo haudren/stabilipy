@@ -316,6 +316,7 @@ class StabilityPolygon():
     return False
 
   def sample(self, p, plot_final=True, plot_step=False):
+    """Test if a point is stable by iteratively refining the approximations"""
     nrIter = 0
     p_t = p.reshape((p.size, 1))
     while nrIter < 50:
@@ -348,14 +349,17 @@ class StabilityPolygon():
       nrIter += 1
     raise SteppingException("Too many steps")
 
-    #self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
-    #if self.sol['status'] == 'optimal':
-    #  vec = np.array(self.sol['x'])
-    #  self.com = p
-    #  nrForces = len(self.contacts)*len(self.gravity_envelope)
-    #  self.forces = vec.reshape((nrForces, 3)).T
-    #  return True
-    #return False
+  def single_test(self, p):
+    """Test if a single point is robust / non-robust without refining
+       the approximations"""
+    self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
+    if self.sol['status'] == 'optimal':
+      vec = np.array(self.sol['x'])
+      self.com = p
+      nrForces = len(self.contacts)*len(self.gravity_envelope)
+      self.forces = vec.reshape((nrForces, 3)).T
+      return True
+    return False
 
   #Compute B as diag(B_s), resulting in only one cone constraint
   def block_socp(self, a, A1, A2, t, B_s, u_s):
