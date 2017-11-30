@@ -516,7 +516,7 @@ class StabilityPolygon():
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
 
-    T = np.vstack([self.computeT(self.gravity+e)
+    T = np.vstack([self.computeT(self.gravity+e, height=self.height)
                    for e in self.gravity_envelope]) - A2.dot(p)
 
     A = matrix(A1_diag)
