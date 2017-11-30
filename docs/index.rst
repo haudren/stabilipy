@@ -45,6 +45,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   recursive_projection
    stabpoly
    backends
    constraints

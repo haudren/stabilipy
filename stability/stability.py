@@ -16,14 +16,8 @@ from utils import cross_m, normalize
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
 
-@unique
-class Mode(Enum):
+from recursive_projection import Mode
 
-  """Enum that shows the three modes of functionment."""
-
-  precision = 1
-  iteration = 2
-  best = 3
 
 class Contact():
 
@@ -617,7 +611,7 @@ class StabilityPolygon():
 
   def iterBound(self, nr_edges_init, error_init, prec):
     c = float(343)/float(243)
-    return nr_edges_init*(np.sqrt(c*error_init/prec) - 1)
+    return ceil(nr_edges_init*(np.sqrt(c*error_init/prec) - 1))
 
   def select_solver(self, solver):
     if solver == 'cdd':
@@ -691,8 +685,7 @@ class StabilityPolygon():
 
     if(mode is Mode.precision):
       iterBound = self.iterBound(len(self.points), error, epsilon)
-      self.printer("Reaching {} should take {} iterations".format(epsilon,
-                                                                  np.ceil(iterBound)),
+      self.printer("Reaching {} should take {} iterations".format(epsilon, iterBound),
                    Verbosity.info)
       stop_condition = lambda: error > epsilon
     elif(mode is Mode.iteration):
@@ -772,7 +765,7 @@ class StabilityPolygon():
     np.savetxt(fname, self.polyhedron())
 
   def save_outer(self, fname):
-    np.savetxt(fname, convexify_polyhedron(self.outer))
+    np.savetxt(fname, self.convexify_polyhedron(self.outer))
 
   def reset_fig(self):
     self.fig = plt.figure()
