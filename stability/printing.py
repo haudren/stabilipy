@@ -10,6 +10,7 @@ class Verbosity(IntEnum):
   none = 0
   error = 1
   info = 2
+  debug = 3
 
 class Printer(object):
 

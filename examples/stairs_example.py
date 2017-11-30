@@ -41,6 +41,8 @@ def main():
 
   #Foot
   poly.addDistConstraint(bar1, 1.5)
+
+  print bar1
   #Hand
   poly.addDistConstraint(bar2, 1.5)
 

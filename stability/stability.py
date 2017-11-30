@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
-from backends import CDDBackend, ParmaBackend, PlainBackend
+from backends import CDDBackend, ParmaBackend, PlainBackend, QhullBackend
 from utils import cross_m, normalize
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
@@ -69,7 +69,7 @@ class StabilityPolygon():
   cones. In 3D, computes a robust static stability polyhedron."""
 
   def __init__(self, robotMass, dimension=3, gravity=-9.81,
-               radius=2., force_lim=1., robust_sphere=-1):
+               radius=2., force_lim=1., robust_sphere=-1, height=0.):
     """The default constructor to build a polygon/polyhedron.
 
     :param robotMass: Mass of the robot
@@ -77,8 +77,14 @@ class StabilityPolygon():
     :param gravity: Intensity of gravity given along upwards z-axis.
     :param radius: Radius of the CoM limitation constraint.
     :param force_lim: Maximum force, expressed as a factor of the robot's weight.
+    :param robust_sphere: Robust radius to be used with spherical criterion. Negative disables
+    :param height: Height to be used when doing 2D robust
     :type dimension: 2,3
     :type gravity: double
+    :type radius: double
+    :type force_lim: double
+    :type robust_sphere: double
+    :type height: double
     """
     solvers.options['show_progress'] = False
     self.contacts = []
@@ -94,6 +100,8 @@ class StabilityPolygon():
     self.printer = Printer(Verbosity.info)
     self.robust_sphere = robust_sphere
 
+    self.nrSteps = 0
+
     if dimension == 3:
       shape = [
                   np.array([[-1., 0, 0]]).T,
@@ -103,12 +111,14 @@ class StabilityPolygon():
               ]
       self.gravity_envelope = [0.45*s for s in shape]
       self.proj = np.eye(3)
+      self.height = 0.
 
     elif dimension == 2:
       self.gravity_envelope = [
           np.array([[0.0, 0.0, 0.0]]).T
                               ]
       self.proj = np.array([[1, 0, 0], [0, 1, 0]])
+      self.height = height
     else:
       raise ValueError("Dimension can only be 2 or 3")
 
@@ -181,6 +191,7 @@ class StabilityPolygon():
     self.volume_dic = {}
     self.vrep_dic = {}
     self.hrep_dic = {}
+    self.hull_dic = {}
 
     self.directions = []
     self.points = []
@@ -282,8 +293,9 @@ class StabilityPolygon():
     return np.vstack([np.zeros((3, self.size_z())),
                       -cross_m(self.mass*gravity).dot(self.proj.T)])
 
-  def computeT(self, gravity):
-    return np.vstack([-self.mass*gravity, np.array([[0], [0], [0]])])
+  def computeT(self, gravity, height=0):
+    momentum = cross_m(self.mass*gravity).dot(np.array([[0], [0], [height]]))
+    return np.vstack([-self.mass*gravity, momentum])
 
   def check_sizes(self):
     assert(self.A1.shape[1]*len(self.gravity_envelope)
@@ -303,7 +315,43 @@ class StabilityPolygon():
       return True
     return False
 
-  def sample(self, p):
+  def sample(self, p, plot_final=True, plot_step=False):
+    """Test if a point is stable by iteratively refining the approximations"""
+    nrIter = 0
+    p_t = p.reshape((p.size, 1))
+    while nrIter < 50:
+      if self.backend.inside(self, p):
+        if plot_final:
+          self.plot()
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+        return True, nrIter
+      elif self.backend.outside(self, p):
+        if plot_final:
+          self.plot()
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+        return False, nrIter
+      else:
+        direction = self.backend.find_point_direction(self, p)
+        self.step(direction.T)
+        self.build_polys()
+        if plot_step:
+          self.plot()
+          self.ax.plot(*p_t, linestyle="none",
+                        marker='o', alpha=0.6,
+                        markersize=10, markerfacecolor='red')
+          self.show()
+      nrIter += 1
+    raise SteppingException("Too many steps")
+
+  def single_test(self, p):
+    """Test if a single point is robust / non-robust without refining
+       the approximations"""
     self.sol = self.check_point(p, self.A1, self.B_s, self.u_s)
     if self.sol['status'] == 'optimal':
       vec = np.array(self.sol['x'])
@@ -327,15 +375,15 @@ class StabilityPolygon():
 
     #Max a^T z ~ min -a^T z
     #Final cost : min -a^T z + s
-    c = matrix(np.vstack([np.zeros((self.size_x(), 1)), -a, np.zeros((self.size_s(), 1))]))
+    c = np.vstack([np.zeros((self.size_x(), 1)), -a, np.zeros((self.size_s(), 1))])
     A1_diag = block_diag(*([A1]*len(self.gravity_envelope)))
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
 
-    T = np.vstack([self.computeT(self.gravity+e)
+    T = np.vstack([self.computeT(self.gravity+e, height=self.height)
                    for e in self.gravity_envelope])
 
-    A = matrix(np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))]))
+    A = np.hstack([A1_diag, A2, np.zeros((A2.shape[0], self.size_s()))])
 
     g_s = []
     h_s = []
@@ -399,8 +447,8 @@ class StabilityPolygon():
     g = np.vstack(g_s)
     h = np.vstack(h_s)
 
-    sol = solvers.conelp(c, G=matrix(g), h=matrix(h),
-                         A=A, b=matrix(T), dims=dims)
+    sol = solvers.conelp(matrix(c), G=matrix(g), h=matrix(h),
+                         A=matrix(A), b=matrix(T), dims=dims)
     return sol
 
   def socp(self, a, A1, A2, t, B_s, u_s):
@@ -472,7 +520,7 @@ class StabilityPolygon():
     A2 = np.vstack([self.computeA2(self.gravity+e)
                     for e in self.gravity_envelope])
 
-    T = np.vstack([self.computeT(self.gravity+e)
+    T = np.vstack([self.computeT(self.gravity+e, height=self.height)
                    for e in self.gravity_envelope]) - A2.dot(p)
 
     A = matrix(A1_diag)
@@ -546,30 +594,8 @@ class StabilityPolygon():
            "Terminated in {} state".format(self.sol['status'])]
       raise SteppingException('\n'.join(m))
 
-    self.invalidate_vreps()
-
-  def invalidate_vreps(self):
-    offset = self.offsets[-1]
-    direction = self.directions[-1]
-    keys = []
-
-    for key, vrep in self.vrep_dic.iteritems():
-      try:
-        valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
-      except IndexError as e:
-        print "Error :( "
-        valid = True
-      if not valid:
-        keys.append(key)
-        if key in self.hrep_dic:
-          self.hrep_dic[key].extend(np.hstack((offset, -direction)))
-
-    #print "Invalidating {} keys out of {}".format(len(keys),
-    #                                              len(self.vrep_dic.keys()))
-    #Keys should always be present in both dictionaries !
-    for key in keys:
-      del self.volume_dic[key]
-      del self.vrep_dic[key]
+    if self.dimension == 3:
+      self.invalidate_vreps()
 
   def next_edge(self, plot=False, plot_direction=False,
                 record=False, fname_poly=False, number=0):
@@ -602,6 +628,8 @@ class StabilityPolygon():
       if self.dimension != 2:
         raise ValueError("The plain backend can only be used in 2D")
       self.backend = PlainBackend('scipy')
+    elif solver == 'qhull':
+      self.backend = QhullBackend('scipy')
     else:
       raise ValueError("Only 'cdd' or 'parma' solvers are available")
     self.volume_convex = self.backend.volume_convex
@@ -609,6 +637,9 @@ class StabilityPolygon():
     self.find_direction = partial(self.backend.find_direction, self)
     self.triangulate_polyhedron = self.backend.scipy_triangulate_polyhedron
     self.convexify_polyhedron = self.backend.scipy_convexify_polyhedron
+
+    if self.dimension == 3:
+      self.invalidate_vreps = partial(self.backend.invalidate_vreps, self)
 
   def compute(self, mode, maxIter=100, epsilon=1e-4,
               solver='cdd',
@@ -651,6 +682,7 @@ class StabilityPolygon():
 
     error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
     nrSteps = 0
+    self.nrSteps = nrSteps
 
     if plot_error:
       self.fig_error = plt.figure()
@@ -683,10 +715,15 @@ class StabilityPolygon():
         failure = True
         break
       error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
+      self.printer("{} - {} = {} ".format(self.volume_convex(self.outer),
+                                          self.volume_convex(self.inner),
+                                          error),
+                   Verbosity.debug)
       self.printer(error, Verbosity.info)
       sys.stdout.flush()
 
       nrSteps += 1
+      self.nrSteps = nrSteps
       if plot_error:
         self.line_error.set_xdata(np.append(self.line_error.get_xdata(),
                                             nrSteps))
@@ -726,6 +763,10 @@ class StabilityPolygon():
     """Return the inner polyhedron as a set of points"""
     p = self.convexify_polyhedron(self.inner)
     return p
+
+  def outer_polyhedron(self):
+    """Return the outer polyhedron as a set of points"""
+    return self.convexify_polyhedron(self.outer)
 
   def save_polyhedron(self, fname):
     np.savetxt(fname, self.polyhedron())

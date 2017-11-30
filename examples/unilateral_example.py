@@ -36,9 +36,9 @@ def main(margin):
   polytope = [margin*s for s in shape]
 
   polyhedron.gravity_envelope = polytope
-  polyhedron.compute(stab.Mode.best, epsilon=2e-3, maxIter=30, solver='parma',
+  polyhedron.compute(stab.Mode.iteration, epsilon=2e-3, maxIter=10, solver='qhull',
                      record_anim=False, plot_init=False,
-                     plot_step=False, plot_final=True, plot_direction=False)
+                     plot_step=False, plot_final=True)
   #polyhedron.reset_fig()
   #polyhedron.ax.set_xlabel("x(m)")
   #polyhedron.ax.set_ylabel("y(m)")
@@ -57,10 +57,10 @@ def main(margin):
   #polygon.gravity_envelope = polytope
   #polygon.compute(stab.Mode.best, epsilon=2e-3, maxIter=20, solver='parma',
   #                record_anim=False, plot_init=False,
-  #                plot_step=False, plot_final=True)
+  #                plot_step=False, plot_final=False)
 
-  #print(polyhedron.volume_convex(polyhedron.inner))
-  #print(3*polygon.volume_convex(polygon.inner))
+  #print polyhedron.volume_convex(polyhedron.inner)
+  #print 3*polygon.volume_convex(polygon.inner)
 
 print("Margin : {}".format(sys.argv[1]))
 
