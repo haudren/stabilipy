@@ -47,6 +47,7 @@ Contents:
 
    recursive_projection
    stabpoly
+   linear_projection
    backends
    constraints
 

@@ -1,3 +1,5 @@
+.. _recursive_projection:
+
 Recursive Projection
 ********************
 
