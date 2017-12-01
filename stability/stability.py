@@ -1,22 +1,16 @@
-import sys
-from functools import partial
-from enum import Enum, unique
-
 import numpy as np
 from scipy.linalg import block_diag
 from cvxopt import matrix, solvers
-import shapely.geometry as geom
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
 from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
-from backends import CDDBackend, ParmaBackend, PlainBackend, QhullBackend
-from utils import cross_m, normalize
+from utils import cross_m
 from linear_cone import rotate_axis
 from printing import Verbosity, Printer
 
-from recursive_projection import Mode
+from recursive_projection import RecursiveProjectionProblem
 
 
 class Contact():
@@ -54,7 +48,8 @@ class SteppingException(Exception):
   def __str__(self):
     return self.message
 
-class StabilityPolygon():
+
+class StabilityPolygon(RecursiveProjectionProblem):
   """Algorithm to compute stability polygon according to
   Bretl et al. \"Testing static equilibrium of legged robots\".
   You need to first set some contacts and a robot mass
@@ -180,20 +175,6 @@ class StabilityPolygon():
     self.dist_constraints = []
     self.cube_constraints = []
 
-  def clearAlgo(self):
-    """Resets internal state"""
-    self.volume_dic = {}
-    self.vrep_dic = {}
-    self.hrep_dic = {}
-    self.hull_dic = {}
-
-    self.directions = []
-    self.points = []
-    self.offsets = []
-
-    self.inner = None
-    self.outer = None
-
   def make_problem(self):
     """Compute all matrices necessary to solving the problems. Only needs to be
     called once, because the problem shape never changes. This adds global dist
@@ -306,8 +287,9 @@ class StabilityPolygon():
       self.com = vec[self.size_x():self.size_x()+self.size_z()]
       nrForces = len(self.contacts)*len(self.gravity_envelope)
       self.forces = vec[:self.size_x()].reshape((nrForces, 3)).T
-      return True
-    return False
+      return self.com
+    else:
+      return None
 
   def sample(self, p, plot_final=True, plot_step=False):
     """Test if a point is stable by iteratively refining the approximations"""
@@ -546,242 +528,20 @@ class StabilityPolygon():
                          A=A, b=matrix(T), dims=dims)
     return sol
 
-  def init_algo(self):
-    self.clearAlgo()
-    #Search in "random" directions
-    if self.dimension == 3:
-      directions = map(normalize, [np.array([[1, 0, 0]]).T,
-                                   np.array([[-1, 0, 0]]).T,
-                                   np.array([[0, 1, 0]]).T,
-                                   np.array([[0, -1, 0]]).T,
-                                   np.array([[0, 0, 1]]).T,
-                                   np.array([[0, 0, -1]]).T])
-    elif self.dimension == 2:
-      directions = map(normalize, [np.array([[1, 0]]).T,
-                                   np.array([[-1, 0]]).T,
-                                   np.array([[0, 1]]).T,
-                                   np.array([[0, -1]]).T])
-
-    rdirs = []
-
-    for d in directions:
-      try:
-        self.step(d)
-      except SteppingException as e:
-        rdir = np.random.random((self.size_z(), 1))
-        self.printer(str(e)+" Will try in a random direction {}".format(rdir.T),
-                     Verbosity.error)
-        rdirs.append(rdir)
-
-    for d in rdirs:
-      self.step(d)
-
-    assert len(self.points) >= 3, "Not enough points to form a triangle"
-
-  def step(self, d):
-    if self.solve(d):
-      self.directions.append(d.T)
-      self.points.append(self.com)
-      self.offsets.append(d.T.dot(self.com))
-    else:
-      m = ["Failed to step in direction {}".format(d.T),
-           "Terminated in {} state".format(self.sol['status'])]
-      raise SteppingException('\n'.join(m))
-
-    if self.dimension == 3:
-      self.invalidate_vreps()
-
-  def next_edge(self, plot=False, plot_direction=False,
-                record=False, fname_poly=False, number=0):
-    d = normalize(self.find_direction(plot_direction).reshape((self.size_z(), 1)))
-    self.step(d)
-
-    if plot or record:
-      self.plot()
-      if plot:
-        self.show()
-      if record:
-        filename = "stability_{0:04d}".format(number)
-        plt.savefig(filename)
-        plt.close()
-
-    if fname_poly is not None:
-      self.save_polyhedron(fname_poly+'_inner_{0:04d}'.format(number))
-      self.save_outer(fname_poly+'_outer_{0:04d}'.format(number))
-
   def iterBound(self, nr_edges_init, error_init, prec):
     c = float(343)/float(243)
-    return ceil(nr_edges_init*(np.sqrt(c*error_init/prec) - 1))
-
-  def select_solver(self, solver):
-    if solver == 'cdd':
-      self.backend = CDDBackend('scipy')
-    elif solver == 'parma':
-      self.backend = ParmaBackend('scipy')
-    elif solver == 'plain':
-      if self.dimension != 2:
-        raise ValueError("The plain backend can only be used in 2D")
-      self.backend = PlainBackend('scipy')
-    elif solver == 'qhull':
-      self.backend = QhullBackend('scipy')
-    else:
-      raise ValueError("Only 'cdd' or 'parma' solvers are available")
-    self.volume_convex = self.backend.volume_convex
-    self.build_polys = partial(self.backend.build_polys, self)
-    self.find_direction = partial(self.backend.find_direction, self)
-    self.triangulate_polyhedron = self.backend.scipy_triangulate_polyhedron
-    self.convexify_polyhedron = self.backend.scipy_convexify_polyhedron
-
-    if self.dimension == 3:
-      self.invalidate_vreps = partial(self.backend.invalidate_vreps, self)
-
-  def compute(self, mode, maxIter=100, epsilon=1e-4,
-              solver='cdd',
-              plot_error=False,
-              plot_init=False,
-              plot_step=False,
-              plot_direction=False,
-              record_anim=False,
-              plot_final=True,
-              fname_polys=None):
-    """Compute the polygon/polyhedron at a given precision or for a number of
-    iterations or at best.
-
-    :param mode: Stopping criterion.
-    :param maxIter: Maximum number of iterations.
-    :param epsilon: Precision target.
-    :param solver: Backend that will be used.
-    :param plot_error: Make a running plot of the error during computation.
-    :param plot_init: Plot the initial state of the algorithm.
-    :param plot_step: Plot the state of the algorithm at each iteration.
-    :param plot_direction: Plot the direction found for the next iteration.
-    :param record_anim: Record all steps as images in files.
-    :param plot_final: Plot the final polygon/polyhedron.
-    :param fname_polys: Record successive iterations as text files.
-    :type mode: stability.Mode
-    :type maxIter: int
-    :type precision: double
-    :type solver: stability.backends
-    """
-
-    self.select_solver(solver)
-    self.make_problem()
-    self.init_algo()
-    self.build_polys()
-    failure = False
-
-    if plot_init:
-      self.plot()
-      self.show()
-
-    error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
-    nrSteps = 0
-    self.nrSteps = nrSteps
-
-    if plot_error:
-      self.fig_error = plt.figure()
-      self.ax_error = self.fig_error.add_subplot(111)
-      self.line_error, = self.ax_error.plot([nrSteps], [error], 'r-')
-
-    if(mode is Mode.precision):
-      iterBound = self.iterBound(len(self.points), error, epsilon)
-      self.printer("Reaching {} should take {} iterations".format(epsilon, iterBound),
-                   Verbosity.info)
-      stop_condition = lambda: error > epsilon
-    elif(mode is Mode.iteration):
-      self.printer("This will take {} iterations".format(maxIter), Verbosity.info)
-      stop_condition = lambda: nrSteps < maxIter
-    elif(mode is Mode.best):
-      self.printer("Will try to reach {} under {} iterations".format(epsilon, maxIter),
-                   Verbosity.info)
-      stop_condition = lambda: nrSteps < maxIter and error > epsilon
-    else:
-      raise ValueError("Unknown mode, please use a value supplied in enum")
-
-    while(stop_condition()):
-      try:
-        self.next_edge(plot_step, plot_direction, record_anim,
-                       fname_polys, nrSteps)
-      except SteppingException as e:
-        self.printer("Failure detected... Aborting", Verbosity.error)
-        self.printer(e.message, Verbosity.error)
-        failure = True
-        break
-      error = self.volume_convex(self.outer) - self.volume_convex(self.inner)
-      self.printer("{} - {} = {} ".format(self.volume_convex(self.outer),
-                                          self.volume_convex(self.inner),
-                                          error),
-                   Verbosity.debug)
-      self.printer(error, Verbosity.info)
-      sys.stdout.flush()
-
-      nrSteps += 1
-      self.nrSteps = nrSteps
-      if plot_error:
-        self.line_error.set_xdata(np.append(self.line_error.get_xdata(),
-                                            nrSteps))
-        self.line_error.set_ydata(np.append(self.line_error.get_ydata(),
-                                            error))
-        self.ax_error.relim()
-        self.ax_error.autoscale_view()
-        self.fig_error.canvas.draw()
-        plt.pause(0.01)
-
-    self.printer("NrIter : {} | Remainder : {}".format(nrSteps, error), Verbosity.info)
-
-    if plot_final and not failure:
-      self.plot()
-      self.show()
-
-  def polygon(self, centroid=None):
-    """Return the inner approximation as a shapely polygon. Only valid in 2D"""
-    assert(self.dimension == 2)
-    if isinstance(self.backend, CDDBackend):
-      gen = np.array(self.inner)[:, 1:]
-    elif isinstance(self.backend, PlainBackend):
-      gen = self.inner.vertices
-    elif isinstance(self.backend, ParmaBackend):
-      gen = self.inner.vrep()[:, 1:]
-    else:
-      raise NotImplemented("No polygon method defined for this backend")
-
-    p = np.vstack([gen, gen[0, :]])
-    if centroid is None:
-      x, y = p[:, 0], p[:, 1]
-    else:
-      x, y = p[:, 0] + centroid.item(0), p[:, 1] + centroid.item(1)
-    return geom.Polygon(zip(x, y)).convex_hull
-
-  def polyhedron(self):
-    """Return the inner polyhedron as a set of points"""
-    p = self.convexify_polyhedron(self.inner)
-    return p
-
-  def outer_polyhedron(self):
-    """Return the outer polyhedron as a set of points"""
-    return self.convexify_polyhedron(self.outer)
-
-  def save_polyhedron(self, fname):
-    np.savetxt(fname, self.polyhedron())
-
-  def save_outer(self, fname):
-    np.savetxt(fname, self.convexify_polyhedron(self.outer))
+    return np.ceil(nr_edges_init*(np.sqrt(c*error_init/prec) - 1))
 
   def reset_fig(self):
-    self.fig = plt.figure()
-    self.ax = self.fig.add_subplot('111', aspect='equal', projection='3d')
+    RecursiveProjectionProblem.reset_fig(self)
     if self.radius is not None:
       tup = [-1.1*self.radius, 1.1*self.radius]
-    else:
-      tup = [-2, 2]
-    self.ax.set_xlim(tup)
-    self.ax.set_ylim(tup)
-    self.ax.set_zlim(tup)
-
-    self.ax.elev = 30.
-    #self.ax.dist = 20.
+      self.ax.set_xlim(tup)
+      self.ax.set_ylim(tup)
+      self.ax.set_zlim(tup)
 
   def plot(self):
+    #Custom plot here because we want to plot forces too
     self.reset_fig()
     self.plot_contacts()
     self.plot_solution()
@@ -824,19 +584,6 @@ class StabilityPolygon():
 
   def plot_direction(self, d):
     self.ax.plot([0, d.item(0)], [0, d.item(1)], marker='d')
-
-  def plot_polyhedrons(self):
-    self.plot_polyhedron(self.inner, 'red', 0.1)
-    self.plot_polyhedron(self.outer, 'blue', 0.1)
-
-  def plot_polyhedron(self, poly, c, a):
-    coords, tri = self.triangulate_polyhedron(poly)
-    if len(coords) == 3:
-      surf = self.ax.plot_trisurf(*coords, triangles=tri, color=c, alpha=a, shade=True)
-      surf.set_edgecolor('red')
-    else:
-      #self.ax.plot(*coords, linestyle='+', color=c, alpha=1.0)
-      self.ax.triplot(*coords, triangles=tri, color=c, alpha=a)
 
   def plot_sphere(self, origin, radius, color):
     if self.size_z() == 3:
