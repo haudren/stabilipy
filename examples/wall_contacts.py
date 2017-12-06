@@ -1,5 +1,5 @@
 import numpy as np
-import stability as stab
+import stabilipy as stab
 
 
 #normals = map(stab.normalize,

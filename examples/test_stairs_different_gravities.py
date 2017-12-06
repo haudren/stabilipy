@@ -1,5 +1,5 @@
 from __future__ import division
-import stability as stab
+import stabilipy as stab
 import numpy as np
 import matplotlib.pyplot as plt
 import os

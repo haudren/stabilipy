@@ -1,4 +1,4 @@
-import stability
+import stabilipy as stab
 import numpy as np
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.optimize import linprog
@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def _make_polygon(mass, gravity, contacts, radius):
-  polygon = stability.StabilityPolygon(mass, dimension=2, radius=radius)
+  polygon = stab.StabilityPolygon(mass, dimension=2, radius=radius)
   polygon.contacts = contacts
   polygon.gravity_envelope = [gravity]
   return polygon

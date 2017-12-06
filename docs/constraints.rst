@@ -1,5 +1,5 @@
 Documentation for the various constraints available
 ***************************************************
 
-.. automodule:: stability.constraints
+.. automodule:: stabilipy.constraints
    :members:

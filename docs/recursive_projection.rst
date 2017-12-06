@@ -40,13 +40,13 @@ How to use this class
 =====================
 
 This class is intended for developpers and researchers who wish to implement a new class of problems.
-If you are looking to compute stability or robust stability polygons and polyhedrons, please use :class:`stability.StabilityPolygon`.
-If you wish to compute the projection of a set of linear inequalities, please use :class:`stability.LinearProjection`.
-In general, one only needs to override the :py:func:`stability.RecursiveProjectionProblem.solve` method.
+If you are looking to compute stability or robust stability polygons and polyhedrons, please use :class:`stabilipy.StabilityPolygon`.
+If you wish to compute the projection of a set of linear inequalities, please use :class:`stabilipy.LinearProjection`.
+In general, one only needs to override the :py:func:`stabilipy.RecursiveProjectionProblem.solve` method.
 
 Let us have a look at an example (available in `sphere.py`)::
 
-   import stability as stab
+   import stabilipy as stab
 
 
    class SphereProjection(stab.RecursiveProjectionProblem):
@@ -79,10 +79,10 @@ See below for details of the API.
 Class API
 =========
 
-.. autoclass:: stability.RecursiveProjectionProblem
+.. autoclass:: stabilipy.RecursiveProjectionProblem
   :members:
 
-.. class:: stability.Mode
+.. class:: stabilipy.Mode
 
   All polygon computations should select a mode
   of operation.

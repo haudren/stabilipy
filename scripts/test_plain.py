@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import stability as stab
+import stabilipy as stab
 import numpy as np
 import cdd
 from plain_polygon import DoublePolygon

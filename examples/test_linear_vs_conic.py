@@ -1,4 +1,4 @@
-import stability as stab
+import stabilipy as stab
 import numpy as np
 import cdd
 import pyparma
@@ -6,7 +6,7 @@ from pyparma.utils import fractionize, ex_from_line
 
 import copy
 
-from stability.linear_cone import build_cone
+from stabilipy.linear_cone import build_cone
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 

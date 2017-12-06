@@ -1,4 +1,4 @@
-import stability as stab
+import stabilipy as stab
 
 
 class SphereProjection(stab.RecursiveProjectionProblem):

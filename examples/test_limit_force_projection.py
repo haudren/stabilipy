@@ -1,8 +1,8 @@
-import stability as stab
+import stabilipy as stab
 import numpy as np
 import cdd
 import copy
-from stability.linear_cone import build_cone
+from stabilipy.linear_cone import build_cone
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 

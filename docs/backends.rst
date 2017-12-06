@@ -14,5 +14,5 @@ is supported. Others are defined at least partially in geomengines.py:
 * Qhull-Sch: Custom bindings to qhullcpp for sch, that are not really
   usable as of now.
 
-.. automodule:: stability.backends
+.. automodule:: stabilipy.backends
    :members:

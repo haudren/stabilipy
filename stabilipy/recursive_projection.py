@@ -114,10 +114,10 @@ class RecursiveProjectionProblem():
     :param record_anim: Record all steps as images in files.
     :param plot_final: Plot the final polygon/polyhedron.
     :param fname_polys: Record successive iterations as text files.
-    :type mode: stability.Mode
+    :type mode: stabilipy.Mode
     :type maxIter: int
     :type precision: double
-    :type solver: stability.backends
+    :type solver: stabilipy.backends
     """
 
     self.select_solver(solver)

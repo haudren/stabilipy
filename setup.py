@@ -20,18 +20,18 @@ with open(path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='stability',
+    name='StabiliPy',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
     version='0.1.0',
 
-    description='Computation of stability polygon via cone programming',
+    description='Computation of stability polyhedrons via recursive projection and cone programming',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/haudren/stability-polygon',
+    url='https://github.com/haudren/stabilipy',
 
     # Author details
     author='Hervé Audren',
@@ -65,11 +65,11 @@ setup(
     ],
 
     # What does your project relate to?
-    keywords='stability polygon legged robots cone programming recursive projection',
+    keywords='stability polygon polyhedron legged robots cone programming recursive projection',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=['stability'],
+    packages=['stabilipy'],
 
     # List run-time dependencies here.  These will be installed by pip when
     # your project is installed. For an analysis of "install_requires" vs pip's

@@ -1,8 +1,3 @@
-.. Stability polygon documentation master file, created by
-   sphinx-quickstart on Fri Dec  4 13:56:41 2015.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Computation of stability polygons
 =================================
 
@@ -10,8 +5,8 @@ This package provides an easy interface to compute stability polygons.
 
 One should create a StabilityPolygon by setting the robotMass, like so::
 
-   import stability
-   poly = stability.StabilityPolygon(57.5)
+   import stabilipy
+   poly = stabilipy.StabilityPolygon(57.5)
 
 By default, a 3D robust static polyhedron is defined, see
 :class:`stability.StabilityPolygon` for more information.
@@ -22,8 +17,8 @@ It is then necessary to create some contacts, and insert them in the polygon::
    normals = [[[0., 0., 1.]], [[0.1, 0.1, 1.]]]
    mu = 0.7
 
-   contacts = [stability.Contact(mu, np.array(p).T,
-                                 stability.utils.normalize(np.array(n).T))
+   contacts = [stabilipy.Contact(mu, np.array(p).T,
+                                 stabilipy.utils.normalize(np.array(n).T))
                for p, n in zip(pos, normals)]
    poly.contacts = contacts
 

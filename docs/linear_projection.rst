@@ -28,7 +28,7 @@ Example of usage
 
 The following example (contained in `hypercube.py`) shows how to project a 6D hypercube in 3D, resulting in a cube::
 
-    import stability as stab
+    import stabilipy as stab
     import numpy as np
 
     if __name__ == '__main__':
@@ -47,6 +47,6 @@ Important notes:
 Class API
 =========
 
-.. autoclass:: stability.LinearProjection
+.. autoclass:: stabilipy.LinearProjection
   :members:
 

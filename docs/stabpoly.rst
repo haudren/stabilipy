@@ -1,5 +1,5 @@
 Stability Polygon and contacts
 ******************************
 
-.. autoclass:: stability.StabilityPolygon
+.. autoclass:: stabilipy.StabilityPolygon
    :members:

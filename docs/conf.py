@@ -47,8 +47,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Stability polygon'
-copyright = u'2015, Hervé Audren'
+project = u'StabiliPy'
+copyright = u'2015-2017, Hervé Audren'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -244,9 +244,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'Stabilitypolygon', u'Stability polygon Documentation',
-   u'Hervé Audren', 'Stabilitypolygon', 'One line description of project.',
-   'Miscellaneous'),
+  ('index', 'StabiliPy', u'StabiliPy Documentation',
+   u'Hervé Audren', 'StabiliPy', 'StabiliPy computes stability regions for legged robots',
+   'Scientific Computing'),
 ]
 
 # Documents to append as an appendix to all manuals.

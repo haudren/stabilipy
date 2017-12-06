@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import stability as stab
+import stabilipy as stab
 
 import matplotlib.pyplot as plt
 import cdd

@@ -1,4 +1,4 @@
-import stability as stab
+import stabilipy as stab
 import numpy as np
 import sys
 
