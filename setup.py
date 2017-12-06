@@ -38,7 +38,7 @@ setup(
     author_email='h.audren@gmail.com',
 
     # Choose your license
-    license='MIT',
+    license='LGPLv3+',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -53,17 +53,18 @@ setup(
         'Topic :: Software Development :: Build Tools',
 
         # Pick your license as you wish (should match "license" above)
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
+
     ],
 
     # What does your project relate to?
-    keywords='stability polygon legged robots cone programming',
+    keywords='stability polygon legged robots cone programming recursive projection',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
@@ -74,9 +75,9 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
+          "numpy>=1.8.2",
           "scipy>=0.17.0",
           "matplotlib",
-          "numpy>=1.8.2",
           "pyparma>=0.3.3",
           "pycddlib>=1.0.0",
           "cvxopt>=1.1.4",
