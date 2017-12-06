@@ -24,7 +24,7 @@ class Mock(MagicMock):
 
 MOCK_MODULES = []
 if os.environ.get('READTHEDOCS') == 'True':
-  MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'pyparma', 'pycddlib', 'cvxopt', 'scipy.linalg', 'matplotlib.pyplot', 'scipy.optimize', 'mpl_toolkits.mplot3d', 'scipy.spatial', 'scipy.spatial.qhull', 'pyparma.utils']
+  MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'pyparma', 'pycddlib', 'cvxopt', 'scipy.linalg', 'matplotlib.pyplot', 'scipy.optimize', 'mpl_toolkits', 'mpl_toolkits.mplot3d', 'scipy.spatial', 'scipy.spatial.qhull', 'pyparma.utils']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 
