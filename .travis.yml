@@ -6,6 +6,3 @@ python:
 install:
   - sudo apt-get -qq update
   - sudo apt-get install -y liblapack-dev libatlas-dev libblas-dev libgmp-dev libppl-dev
-
-script:
-  nosetests
