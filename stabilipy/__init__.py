@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 from stability import *
 from prism_intersection import PrismIntersection
