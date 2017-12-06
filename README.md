@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/haudren/stabilipy.svg?branch=master)](https://travis-ci.org/haudren/stabilipy) [![Doc Status](https://readthedocs.org/projects/stabilipy/badge/)](https://stabilipy.readthedocs.io)
+
 Stabilipy
 =========
 

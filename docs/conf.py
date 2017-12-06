@@ -15,6 +15,19 @@
 import sys
 import os
 
+from mock import Mock as MagicMock
+
+class Mock(MagicMock):
+  @classmethod
+  def __getattr__(cls, name):
+    return MagicMock()
+
+MOCK_MODULES = []
+if os.environ.get('READTHEDOCS') == 'True':
+  MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'pyparma', 'cdd', 'cvxopt', 'scipy.linalg', 'matplotlib.pyplot', 'scipy.optimize', 'mpl_toolkits', 'mpl_toolkits.mplot3d', 'scipy.spatial', 'scipy.spatial.qhull', 'pyparma.utils']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.

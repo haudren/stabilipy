@@ -76,12 +76,6 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-          "numpy>=1.8.2",
-          "scipy>=0.17.0",
-          "matplotlib",
-          "pyparma>=0.3.3",
-          "pycddlib>=1.0.0",
-          "cvxopt>=1.1.4",
           ],
 
     # List additional groups of dependencies here (e.g. development
