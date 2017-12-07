@@ -23,8 +23,7 @@ In order to install all possible backends use:
 > sudo apt-get install liblapack-dev libatlas-dev libblas-dev libgmp-dev libppl-dev
 
 Followed by:
-> pip install cython
-> pip install -r requirements.txt
+> pip install cython && pip install -r requirements.txt
 
 Then:
 > pip install .
