@@ -31,6 +31,6 @@ Then:
 Should do the trick !
 
 Notes:
-- You need LAPACK, Atlas and BLAS to install CVXOPT
+- You need LAPACK, Atlas and BLAS to install [CVXOPT](https://github.com/cvxopt/cvxopt)
 - You need Cython to install [pycddlib](https://github.com/mcmtroffaes/pycddlib)
 - You need Cython, gmp, and the Parma Polyhedra Library to install [pyparma](https://github.com/haudren/pyparma)
