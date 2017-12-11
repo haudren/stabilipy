@@ -18,8 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import absolute_import
+from builtins import zip
 import numpy as np
-from backends import CDDBackend, PlainBackend, ParmaBackend
+from .backends import CDDBackend, PlainBackend, ParmaBackend
 
 try:
   import shapely.geometry as geom
@@ -59,4 +62,4 @@ def polygon(self, centroid=None):
     x, y = p[:, 0], p[:, 1]
   else:
     x, y = p[:, 0] + centroid.item(0), p[:, 1] + centroid.item(1)
-  return geom.Polygon(zip(x, y)).convex_hull
+  return geom.Polygon(list(zip(x, y))).convex_hull

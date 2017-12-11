@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+from builtins import zip
 import stabilipy as stab
 import numpy as np
 import sys
@@ -54,8 +56,8 @@ def main(margin):
   np.savetxt('random_points.txt', points)
   #points = np.loadtxt('random_points.txt')
 
-  truths, iters = zip(*[prisms.sample(point)
-                        for point in points])
+  truths, iters = list(zip(*[prisms.sample(point)
+                        for point in points]))
   #truths = np.array(truths)
 
   #prisms.plot()
@@ -67,6 +69,6 @@ def main(margin):
 
   #prisms.show()
 
-print "Margin : {}".format(sys.argv[1])
+print("Margin : {}".format(sys.argv[1]))
 
 main(float(sys.argv[1]))

@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+from builtins import zip
+from builtins import range
 import stabilipy as stab
 import numpy as np
 import cdd
@@ -26,9 +29,10 @@ from stabilipy.linear_cone import build_cone
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 
+from stairs_contact import pos, normals
+
 np.set_printoptions(linewidth=1000000, precision=2, threshold=1e12)
 
-execfile('stairs_contacts.py')
 
 def main():
   global pos, normals
@@ -110,11 +114,11 @@ def main():
   mat.rep_type = cdd.RepType.INEQUALITY
   mat.extend(exp_poly_ineq)
   mat.extend(eq, linear=True)
-  print "Let's goooooo"
+  print("Let's goooooo")
   cdd_poly = cdd.Polyhedron(mat)
   vertices = np.array(cdd_poly.get_generators())
 
-  print vertices.shape
+  print(vertices.shape)
   if len(vertices.shape) > 1:
     point_mask = vertices[:, 0] == 1
     points = vertices[point_mask, -2:]
@@ -129,14 +133,14 @@ def main():
                  'red', label='cdd', marker='^', markersize=10)
     for ray in rays:
       if np.linalg.norm(ray) > 1e-10:
-        print ray
+        print(ray)
         pp = np.vstack([i*ray for i in np.linspace(0.01, 1)])
         poly.ax.plot(pp[:, 0], pp[:, 1], 'red')
       else:
-        print "This is a zero ray"
+        print("This is a zero ray")
     poly.show()
   else:
-    print "No vertices"
+    print("No vertices")
 
   #if sol == 'plain':
   #  ineq = [l/abs(l[0]) for l in poly.inner.inequalities]

@@ -18,8 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from stability import *
+from __future__ import absolute_import
+from .stability import *
 
-from prism_intersection import PrismIntersection
-from recursive_projection import RecursiveProjectionProblem, Mode
-from linear_projection import LinearProjection
+from .prism_intersection import PrismIntersection
+from .recursive_projection import RecursiveProjectionProblem, Mode
+from .linear_projection import LinearProjection

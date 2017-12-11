@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from builtins import zip
 import stabilipy as stab
 import numpy as np
 import sys
@@ -53,8 +54,8 @@ def main():
 
   polyhedron.plot()
 
-  polyhedron.ax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
-  polyhedron.ax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
+  polyhedron.ax.plot(*list(zip(*points[truths, :])), linestyle="none", marker="*", markerfacecolor="green")
+  polyhedron.ax.plot(*list(zip(*points[~truths, :])), linestyle="none", marker="x", markerfacecolor="red")
 
   polyhedron.show()
 

@@ -1,3 +1,8 @@
+from __future__ import print_function
+from builtins import zip
+from builtins import map
+from builtins import range
+from builtins import object
 import stabilipy as stab
 import numpy as np
 import sys
@@ -32,7 +37,7 @@ ylim = [-0.95389899, 0.95389899]
 zlim = [-0.95389899, 0.95389899]
 
 
-class CircularBuffer():
+class CircularBuffer(object):
 
   """Holds object and allows to access from both ends"""
 
@@ -55,7 +60,7 @@ class CircularBuffer():
 
 def point_seq(n):
   l = [None]*(2*n)
-  l[::2] = range(n)
+  l[::2] = list(range(n))
   l[1::2] = [-i for i in range(n)]
   return l[1:]
 
@@ -126,8 +131,8 @@ def main(n, alphas):
           a1 += alphas[k1]
       niter += 1
 
-    print ex0
-    print ex1
+    print(ex0)
+    print(ex1)
     shrink_points.append(r0)
     shrink_points.append(r1)
     polygon.ax.plot(r0[0], r0[1], marker='^', markersize=20)
@@ -135,6 +140,6 @@ def main(n, alphas):
 
   polygon.show()
 
-print("n-sided gon : {} with limits {}".format(int(sys.argv[1]), map(float, sys.argv[2:])))
+print("n-sided gon : {} with limits {}".format(int(sys.argv[1]), list(map(float, sys.argv[2:]))))
 
-main(int(sys.argv[1]), map(float, sys.argv[2:]))
+main(int(sys.argv[1]), list(map(float, sys.argv[2:])))

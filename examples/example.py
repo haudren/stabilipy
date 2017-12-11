@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from builtins import map
+from builtins import zip
 import numpy as np
 import stabilipy as stab
 
@@ -51,10 +54,10 @@ def main():
 
   #normals = [np.array([[0, 0, 1]]).T]*3
 
-  normals = map(stab.normalize,
+  normals = list(map(stab.normalize,
                 [np.array([[0.5, 0.0, 1]]).T,
                  np.array([[0.5, 0.0, 1]]).T,
-                 np.array([[0.0, 0.0, 1]]).T])
+                 np.array([[0.0, 0.0, 1]]).T]))
 
   pos = [np.array([[0.1, -0.2, 0]]).T,
          np.array([[-0.1, -0.2, 0]]).T,

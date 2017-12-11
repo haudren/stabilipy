@@ -18,6 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import zip
+from builtins import object
 from scipy.spatial import ConvexHull, HalfspaceIntersection
 from scipy.spatial.qhull import QhullError
 from scipy.optimize import linprog
@@ -39,18 +44,18 @@ try:
 except ImportError:
   PPL_AVAILABLE = False
 
-from plain_polygon import DoublePolygon
+from .plain_polygon import DoublePolygon
 
 def cdd_invalidate_vreps(backend, poly):
   offset = poly.offsets[-1]
   direction = poly.directions[-1]
   keys = []
 
-  for key, vrep in poly.vrep_dic.iteritems():
+  for key, vrep in poly.vrep_dic.items():
     try:
       valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
     except IndexError as e:
-      print "Error :( "
+      print("Error :( ")
       valid = True
     if not valid:
       keys.append(key)
@@ -75,11 +80,11 @@ def parma_invalidate_vreps(backend, poly):
   direction = poly.directions[-1]
   keys = []
 
-  for key, vrep in poly.vrep_dic.iteritems():
+  for key, vrep in poly.vrep_dic.items():
     try:
       valid = all(offset+vrep[:, 1:].dot(direction.T) < 0)
     except IndexError as e:
-      print "Error :( "
+      print("Error :( ")
       valid = True
     if not valid:
       keys.append(key)
@@ -102,7 +107,7 @@ def capping_invalidate_vreps(poly):
 
   keys = []
 
-  for key, vrep in poly.hull_dic.iteritems():
+  for key, vrep in poly.hull_dic.items():
     valid = all(offset+vrep.points.dot(direction.T) < 0)
     if not valid:
       keys.append(key)
@@ -364,7 +369,7 @@ class QhullBackend(object):
       try:
         poly.inner.add_points(poly.points[-1].T, restart=False)
       except QhullError:
-        print "Incremental processing failed"
+        print("Incremental processing failed")
         A = np.vstack([p.T for p in poly.points])
         poly.inner = ConvexHull(A, incremental=True)
 
@@ -381,7 +386,7 @@ class QhullBackend(object):
       try:
         poly.outer.add_halfspaces(hs)
       except QhullError:
-        print "Incremental halfspaces failed"
+        print("Incremental halfspaces failed")
         A = np.vstack(poly.directions)
         b = np.vstack(poly.offsets)
 
@@ -434,7 +439,7 @@ class QhullBackend(object):
           except QhullError:
             volumes.append(0.)
         else:
-          print "Error : {}".format(res.message)
+          print("Error : {}".format(res.message))
           volumes.append(0.)
 
         if plot and res.success:
@@ -496,11 +501,11 @@ class QhullBackend(object):
             except QhullError:
               volumes[index] = 0.
           else:
-            print "Error : {}".format(res.message)
+            print("Error : {}".format(res.message))
             volumes[index] = .0
 
       maxv = max(volumes.values())
-      alli = [i for i, v in volumes.iteritems() if v == maxv]
+      alli = [i for i, v in volumes.items() if v == maxv]
       i = random.choice(alli)
       return normals[i:i+1, :]
 
@@ -608,7 +613,7 @@ class PlainBackend(object):
       v3 = self.doublepoly.outer.vertices[i3, :]
       A_e = np.vstack([v1, v2, v3])
 
-      x, y = zip(*A_e)
+      x, y = list(zip(*A_e))
       if plot:
         poly.reset_fig()
         poly.plot_polyhedrons()

@@ -18,13 +18,16 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
 import stabilipy as stab
 import numpy as np
 import cdd
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 
-execfile('stairs_contacts.py')
+from stairs_contacts import pos, normals
 
 def main():
   global pos, normals
@@ -62,7 +65,7 @@ def main():
   #Foot
   poly.addDistConstraint(bar1, 1.5)
 
-  print bar1
+  print(bar1)
   #Hand
   poly.addDistConstraint(bar2, 1.5)
 
@@ -106,10 +109,10 @@ def main():
 
   if sol == 'plain':
     ineq = [l/abs(l[0]) for l in poly.inner.inequalities]
-    print np.vstack(ineq)
+    print(np.vstack(ineq))
   elif sol == 'cdd':
     poly = cdd.Polyhedron(poly.inner)
-    print poly.get_inequalities()
+    print(poly.get_inequalities())
   return poly
 
 if __name__ == '__main__':

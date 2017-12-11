@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
+from builtins import zip
 import numpy as np
 from mayavi import mlab
 import os
@@ -58,7 +60,7 @@ def record_frames(directory, inner, outer, out_dir, view):
     mlab.view(**view)
     plot_poly(A, 1.)
     plot_poly(B, 0.2)
-    print "{} / {}".format(nr_iter, nr_poly)
+    print("{} / {}".format(nr_iter, nr_poly))
     fname = os.path.join(out_dir, 'polyhedrons_{0:04d}.png'.format(nr_iter))
     mlab.savefig(fname)
     nr_iter += 1
@@ -84,10 +86,10 @@ def main(base_name, out_dir, animate):
 
   if animate:
     mlab.figure(size=(800, 700))
-    print "Animating"
+    print("Animating")
     a = animation_poly(directory, inner, outer, view)  # noqa
     mlab.show()
-    print "Done animating"
+    print("Done animating")
   else:
     mlab.options.offscreen = True
     mlab.figure(size=(800, 700))

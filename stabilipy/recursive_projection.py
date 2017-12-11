@@ -18,16 +18,20 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from backends import CDDBackend, PlainBackend, QhullBackend, ParmaBackend
+from __future__ import absolute_import
+from builtins import map
+from builtins import str
+from builtins import object
+from .backends import CDDBackend, PlainBackend, QhullBackend, ParmaBackend
 from functools import partial
 from enum import Enum, unique
 
-from printing import Verbosity, Printer
+from .printing import Verbosity, Printer
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
-from utils import normalize
+from .utils import normalize
 
 
 @unique
@@ -48,7 +52,7 @@ class SteppingException(Exception):
     return self.message
 
 
-class RecursiveProjectionProblem():
+class RecursiveProjectionProblem(object):
 
   """Base class that encapsulates the recursive projection algorithm.
      To use it, you need to specify your problem by implementing the
@@ -221,17 +225,17 @@ class RecursiveProjectionProblem():
 
     #Search in "random" directions
     if self.dimension == 3:
-      directions = map(normalize, [np.array([[1, 0, 0]]).T,
+      directions = list(map(normalize, [np.array([[1, 0, 0]]).T,
                                    np.array([[-1, 0, 0]]).T,
                                    np.array([[0, 1, 0]]).T,
                                    np.array([[0, -1, 0]]).T,
                                    np.array([[0, 0, 1]]).T,
-                                   np.array([[0, 0, -1]]).T])
+                                   np.array([[0, 0, -1]]).T]))
     elif self.dimension == 2:
-      directions = map(normalize, [np.array([[1, 0]]).T,
+      directions = list(map(normalize, [np.array([[1, 0]]).T,
                                    np.array([[-1, 0]]).T,
                                    np.array([[0, 1]]).T,
-                                   np.array([[0, -1]]).T])
+                                   np.array([[0, -1]]).T]))
 
     rdirs = []
 

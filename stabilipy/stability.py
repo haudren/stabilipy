@@ -18,6 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import absolute_import
+from builtins import str
+from builtins import zip
+from builtins import map
+from builtins import object
 import numpy as np
 from scipy.linalg import block_diag
 from cvxopt import matrix, solvers
@@ -25,15 +31,15 @@ from cvxopt import matrix, solvers
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 
-from constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
-from utils import cross_m
-from linear_cone import rotate_axis
-from printing import Verbosity, Printer
+from .constraints import TorqueConstraint, DistConstraint, ForceConstraint, CubeConstraint
+from .utils import cross_m
+from .linear_cone import rotate_axis
+from .printing import Verbosity, Printer
 
-from recursive_projection import RecursiveProjectionProblem
+from .recursive_projection import RecursiveProjectionProblem
 
 
-class Contact():
+class Contact(object):
 
   """Class representing a contact as a single point"""
 
@@ -227,7 +233,7 @@ class StabilityPolygon(RecursiveProjectionProblem):
     if self.torque_constraints:
       for tc in self.torque_constraints:
         tc.compute(self)
-      L_s, tb_s = zip(*[tc.matrices() for tc in self.torque_constraints])
+      L_s, tb_s = list(zip(*[tc.matrices() for tc in self.torque_constraints]))
       self._size_tb = sum(L.shape[0] for L in L_s)
     else:
       L_s, tb_s = [], []
@@ -235,21 +241,21 @@ class StabilityPolygon(RecursiveProjectionProblem):
     if self.dist_constraints:
       for dc in self.dist_constraints:
         dc.compute(self)
-      S_s, r_s = zip(*[dc.matrices() for dc in self.dist_constraints])
+      S_s, r_s = list(zip(*[dc.matrices() for dc in self.dist_constraints]))
     else:
       S_s, r_s = [], []
 
     if self.force_constraints:
       for fc in self.force_constraints:
         fc.compute(self)
-      F_s, f_s = zip(*[fc.matrices() for fc in self.force_constraints])
+      F_s, f_s = list(zip(*[fc.matrices() for fc in self.force_constraints]))
     else:
       F_s, f_s = [], []
 
     if self.cube_constraints:
       for cc in self.cube_constraints:
         cc.compute(self)
-      C_s, d_s = zip(*[fc.matrices() for fc in self.cube_constraints])
+      C_s, d_s = list(zip(*[fc.matrices() for fc in self.cube_constraints]))
     else:
       C_s, d_s = [], []
 
@@ -483,7 +489,7 @@ class StabilityPolygon(RecursiveProjectionProblem):
     H = [h_com]
 
     #For G : compute all cones
-    for i, (b, u) in enumerate(zip(B_s, u_s)*len(self.gravity_envelope)):
+    for i, (b, u) in enumerate(list(zip(B_s, u_s))*len(self.gravity_envelope)):
       block = -np.vstack([u.T, b])
       g = np.hstack([np.zeros((4, 3*i)),
                      block,
@@ -493,7 +499,7 @@ class StabilityPolygon(RecursiveProjectionProblem):
       H.append(np.zeros((4, 1)))
 
     sol = solvers.socp(c, Gl=matrix(gl), hl=matrix(hl),
-                       Gq=map(matrix, G), hq=map(matrix, H),
+                       Gq=list(map(matrix, G)), hq=list(map(matrix, H)),
                        A=A, b=matrix(T))
     return sol
 
@@ -549,7 +555,7 @@ class StabilityPolygon(RecursiveProjectionProblem):
     return sol
 
   def iterBound(self, nr_edges_init, error_init, prec):
-    c = float(343)/float(243)
+    c = 343/243
     return np.ceil(nr_edges_init*(np.sqrt(c*error_init/prec) - 1))
 
   def reset_fig(self):
@@ -582,7 +588,7 @@ class StabilityPolygon(RecursiveProjectionProblem):
     for c in self.contacts:
       rot = rotate_axis(np.array([[0., 0., 1.]]).T, c.n)
       world_points = radius*c.n+c.r+rot.dot(c.mu*points.T)
-      x, y, z = zip(*world_points.T)
+      x, y, z = list(zip(*world_points.T))
       self.ax.plot(x, y, z, 'black')
       self.ax.plot(c.r[0], c.r[1], c.r[2], marker='o', markersize=6, color='black')
 

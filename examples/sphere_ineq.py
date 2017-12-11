@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import cdd
 import numpy as np
 
@@ -27,4 +28,4 @@ mat_p = cdd.Matrix(np.hstack([np.ones((6, 1)), points]))
 mat_p.rep_type = cdd.RepType.GENERATOR
 
 sphere_ineq = np.array(cdd.Polyhedron(mat_p).get_inequalities())
-print sphere_ineq
+print(sphere_ineq)

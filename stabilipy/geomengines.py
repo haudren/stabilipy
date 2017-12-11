@@ -18,9 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from builtins import zip
+from builtins import range
 import numpy as np
 import cdd
 from scipy.spatial import ConvexHull
+from functools import reduce
 
 try:
   import shapely.geometry as geom
@@ -52,11 +56,11 @@ def area_convex(hrep):
     return 0
   p = np.vstack([gen, gen[0, :]])
   x, y = p[:, 1], p[:, 2]
-  poly = geom.Polygon(zip(x, y))
+  poly = geom.Polygon(list(zip(x, y)))
   return poly.convex_hull.area
 
 def convex_hull(x_p, y_p):
-  poly = geom.Polygon(zip(x_p, y_p))
+  poly = geom.Polygon(list(zip(x_p, y_p)))
   x_c, y_c = poly.convex_hull.exterior.xy
   return x_c, y_c
 
@@ -105,10 +109,10 @@ def tetrahedron_from_facet(facet, center):
   points = []
   he = facet.halfedge()
   points.append(he.vertex().point())
-  h = he.next()
+  h = next(he)
   for i in range(facet.facet_degree()-1):
     points.append(h.vertex().point())
-    h = h.next()
+    h = next(h)
   points.append(center)
   return Tetrahedron_3(*points)
 

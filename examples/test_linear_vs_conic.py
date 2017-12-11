@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
 import stabilipy as stab
 import numpy as np
 import cdd
@@ -30,9 +33,9 @@ from stabilipy.linear_cone import build_cone
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 
-np.set_printoptions(linewidth=1000000, precision=2, threshold=1e12)
+from stairs_contacts import pos, normals
 
-execfile('stairs_contacts.py')
+np.set_printoptions(linewidth=1000000, precision=2, threshold=1e12)
 
 def main():
   global pos, normals
@@ -137,8 +140,8 @@ def main():
   eq = np.hstack((t, -A1, -A2))
   f_lim = limit_fz(0.2)
 
-  print friction.shape
-  print f_lim.shape
+  print(friction.shape)
+  print(f_lim.shape)
 
   #mat = cdd.Matrix(friction, number_type='fraction')
   ##mat = cdd.Matrix(friction)
@@ -153,23 +156,23 @@ def main():
   #vertices = np.array(cdd_poly.get_generators())
 
   parmapoly = pyparma.Polyhedron(hrep=fractionize(friction))
-  print eq.shape
+  print(eq.shape)
   for equality in eq:
     ex = ex_from_line(fractionize(equality.squeeze()))
     parmapoly.poly.add_constraint(ex == 0)
 
   vertices = parmapoly.vrep()
-  print "Got full vrep"
+  print("Got full vrep")
 
   for ineq in f_lim:
-    print "Insert"
+    print("Insert")
     parmapoly.add_ineq(fractionize(ineq))
-  print "Inserted shit"
+  print("Inserted shit")
   vertex_lim = parmapoly.vrep()
-  print "Got small vrep"
+  print("Got small vrep")
 
   #print np.array(mat).shape
-  print vertices.shape
+  print(vertices.shape)
   if len(vertices.shape) > 1:
     points = vertices[:, -2:]
     hull = ConvexHull(points)
@@ -184,7 +187,7 @@ def main():
     poly.ax.plot(points_lim[hull_lim.vertices, 0], points_lim[hull_lim.vertices, 1], label='linear lim')
     poly.show()
   else:
-    print "No vertices"
+    print("No vertices")
 
   #if sol == 'plain':
   #  ineq = [l/abs(l[0]) for l in poly.inner.inequalities]
