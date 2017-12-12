@@ -25,11 +25,13 @@ from enum import Enum, unique
 import numpy as np
 from .utils import cross_m
 
+
 @unique
 class Constraint(Enum):
   """Constraint types. Can only be inequality or conic."""
   Inequality = 1
   Conic = 2
+
 
 class TorqueConstraint(object):
 
@@ -81,7 +83,7 @@ class TorqueConstraint(object):
 
 class ForceConstraint(object):
 
-  """Constraint to limit force applied on certain contacts"""
+  """Constraint to limit the sum of forces applied on certain contacts"""
 
   def __init__(self, indexes, limit):
     """Default constructor.
@@ -111,6 +113,42 @@ class ForceConstraint(object):
 
   def matrices(self):
     return self.g, self.h
+
+
+class ForceComponentConstraint(object):
+
+  """Constraint to limit each component of each force applied on certain contacts"""
+
+  def __init__(self, indexes, limit):
+    """Default constructor
+
+    :param indexes: Indexes of the contacts on which the constraint applies
+    :param limit: Maximum force per component, expressed as percentage of robot weight
+
+    """
+    self.indexes = indexes
+    self.limit = limit
+
+    self.ctype = Constraint.Inequality
+
+  def compute(self, poly):
+    self.size = 2*3*len(self.indexes)*len(poly.gravity_envelope)
+
+    self.A = np.zeros((self.size, poly.nrVars()))
+    line_index = 0
+    off = 0
+    for j in range(len(poly.gravity_envelope)):
+      for index in self.indexes:
+        i = 3*index
+        self.A[line_index:line_index+3, off+i:off+i+3] = np.eye(3)
+        line_index += 3
+      off += 3*len(poly.contacts)
+    self.A[self.size // 2:, :] = -self.A[:self.size // 2, :]
+    self.b = self.limit*poly.mass*9.81*np.ones((self.size, 1))
+
+  def matrices(self):
+    return self.A, self.b
+
 
 class DistConstraint(object):
 
