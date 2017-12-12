@@ -37,5 +37,6 @@ Notes on the `apt` dependencies:
 
 As for the python dependencies:
 - If you are running Python 2, you need to install `enum34`. Beware that this package may conflict with the regular `enum` package.
+- If you are running Python 3, you need to install `future` for compatibility purposes.
 - You need `numpy`, `scipy`, `matplotlib` and `cvxopt`to run the program.
 - It is recommended to install `pyparma` and `pycddlib` to access every backend.
