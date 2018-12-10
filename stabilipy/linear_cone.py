@@ -18,10 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import absolute_import
+from builtins import range
 import numpy as np
 import cdd
 
-from utils import cross_m
+from .utils import cross_m
 
 def build_cone(nr_generators, mu, axis, offset_angle=0):
   origin = np.array([[0, 0, 0]])

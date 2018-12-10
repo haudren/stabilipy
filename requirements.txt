@@ -1,4 +1,5 @@
 enum34
+future
 numpy>=1.8.2
 scipy>=0.17.0
 matplotlib

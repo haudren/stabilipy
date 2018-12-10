@@ -19,6 +19,9 @@
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
+from __future__ import print_function
+from builtins import map
+from builtins import zip
 import numpy as np
 import stabilipy as stab
 
@@ -54,10 +57,10 @@ def main():
 
   #normals = [np.array([[0, 0, 1]]).T]*3
 
-  normals = map(stab.normalize,
+  normals = list(map(stab.normalize,
                 [np.array([[0.5, 0.0, 1]]).T,
                  np.array([[0.5, 0.0, 1]]).T,
-                 np.array([[0.0, 0.0, 1]]).T])
+                 np.array([[0.0, 0.0, 1]]).T]))
 
   pos = [np.array([[0.1, -0.2, 0]]).T,
          np.array([[-0.1, -0.2, 0]]).T,
@@ -118,21 +121,21 @@ def main():
   criterion = np.logical_or(und_points, np.equal(in_points, stability))
 
   c = np.all(criterion)
-  print "Criterion : {}".format(c)
+  print("Criterion : {}".format(c))
   if not c:
-    print "Criterion is false..."
-    print "Number of failures : {}".format(
-          criterion.size - np.count_nonzero(criterion))
-    print "Failure points : {}".format(points.T[~criterion])
+    print("Criterion is false...")
+    print("Number of failures : {}".format(
+          criterion.size - np.count_nonzero(criterion)))
+    print("Failure points : {}".format(points.T[~criterion]))
   else:
-    print "Hurray all decidable points are confirmed!"
+    print("Hurray all decidable points are confirmed!")
 
-  print "Volume inner : {} | Volume outer : {} | Volume sampling : {}".format(
-        vol_in, vol_out, vol_sampling)
-  print "Ratio vol. in./sampling : {} | Ratio points in/total : {}".format(
-        vol_in/vol_sampling, stable.shape[0]/points.shape[0])
-  print "Ratio vol. undecidable/sampling : {} | Ratio undec. points/total: {}".format(
-        (vol_out - vol_in)/vol_sampling, np.count_nonzero(und_points)/points.shape[0])
+  print("Volume inner : {} | Volume outer : {} | Volume sampling : {}".format(
+        vol_in, vol_out, vol_sampling))
+  print("Ratio vol. in./sampling : {} | Ratio points in/total : {}".format(
+        vol_in/vol_sampling, stable.shape[0]/points.shape[0]))
+  print("Ratio vol. undecidable/sampling : {} | Ratio undec. points/total: {}".format(
+        (vol_out - vol_in)/vol_sampling, np.count_nonzero(und_points)/points.shape[0]))
 
   plt.show()
 

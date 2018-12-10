@@ -18,9 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import absolute_import
+from builtins import range
+from builtins import object
 from enum import Enum, unique
 import numpy as np
-from utils import cross_m
+from .utils import cross_m
 
 @unique
 class Constraint(Enum):

@@ -19,6 +19,9 @@
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import range
 import stabilipy as stab
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -98,8 +101,8 @@ def main():
   interp = shapes.PolygonInterpolator(p0, p1)
 
   for i in range(3):
-    x, y = zip(*[[c.r[0], c.r[1]] for c in poly.contacts[4*i:4*(i+1)]])
-    print x
+    x, y = list(zip(*[[c.r[0], c.r[1]] for c in poly.contacts[4*i:4*(i+1)]]))
+    print(x)
     x, y = list(x), list(y)
     x.append(x[0])
     y.append(y[0])
@@ -170,7 +173,7 @@ def main():
 
     #To watch the log file grow
     f.flush()
-    print cur_area - interp_area
+    print(cur_area - interp_area)
 
     if plot_stuff:
       poly.plot()

@@ -19,12 +19,17 @@
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import range
 import stabilipy as stab
 import numpy as np
 from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 import cdd
 import os
+
+from stairs_contacts import pos, normals
 
 from pyparma import Polyhedron as PPL_Poly
 from fractions import Fraction
@@ -35,7 +40,6 @@ import shapes
 
 np.set_printoptions(linewidth=1000)
 
-execfile('stairs_contacts.py')
 
 def main():
   global pos, normals
@@ -99,8 +103,8 @@ def main():
   interp = shapes.PolygonInterpolator(p0, p1)
 
   for i in range(3):
-    x, y = zip(*[[c.r[0], c.r[1]] for c in poly.contacts[4*i:4*(i+1)]])
-    print x
+    x, y = list(zip(*[[c.r[0], c.r[1]] for c in poly.contacts[4*i:4*(i+1)]]))
+    print(x)
     x, y = list(x), list(y)
     x.append(x[0])
     y.append(y[0])
@@ -173,7 +177,7 @@ def main():
 
     #To watch the log file grow
     f.flush()
-    print cur_area - interp_area
+    print(cur_area - interp_area)
 
     #poly.plot()
     #poly.ax.plot(*pi.exterior.coords.xy)
@@ -187,7 +191,7 @@ def main():
   poly.plot_contacts()
 
   for mat in polygons:
-    x, y = zip(*mat)
+    x, y = list(zip(*mat))
     poly.ax.plot(x, y)
   poly.show()
   ##A = np.vstack([p.T for p in poly.points])

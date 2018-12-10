@@ -1,3 +1,6 @@
+from __future__ import print_function
+from builtins import zip
+from builtins import range
 import stabilipy as stab
 import numpy as np
 import sys
@@ -63,8 +66,8 @@ def main(margin):
   #np.savetxt('random_points.txt', points)
   #points = np.loadtxt('random_points.txt')
 
-  truths, nrIter = zip(*[polyhedron.sample(point, plot_final=False, plot_step=False)
-                      for point in points])
+  truths, nrIter = list(zip(*[polyhedron.sample(point, plot_final=False, plot_step=False)
+                      for point in points]))
   truths = np.array(truths)
 
   print(sum(nrIter))
@@ -73,13 +76,13 @@ def main(margin):
   #polyhedron2.ax = polyhedron.ax
   #polyhedron2.plot_polyhedrons()
 
-  polyhedron.ax.plot(*zip(*points[truths, :]), linestyle="none", marker="*", markerfacecolor="green")
-  polyhedron.ax.plot(*zip(*points[~truths, :]), linestyle="none", marker="x", markerfacecolor="red")
+  polyhedron.ax.plot(*list(zip(*points[truths, :])), linestyle="none", marker="*", markerfacecolor="green")
+  polyhedron.ax.plot(*list(zip(*points[~truths, :])), linestyle="none", marker="x", markerfacecolor="red")
 
   polyhedron.show()
 
   A = np.vstack((
-      np.array(range(points.shape[0])),
+      np.array(list(range(points.shape[0]))),
       np.cumsum(np.array(nrIter))))
 
   np.savetxt('nr_iter.txt', A.T)

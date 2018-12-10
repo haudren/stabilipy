@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from builtins import range
 import numpy as np
 
 def contacts(n):

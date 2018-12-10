@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
-from recursive_projection import RecursiveProjectionProblem
+from __future__ import absolute_import
+from .recursive_projection import RecursiveProjectionProblem
 import scipy.optimize as opt
 import numpy as np
 

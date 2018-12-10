@@ -18,6 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+from builtins import zip
+from builtins import range
+from builtins import object
 import stabilipy as stab
 import numpy as np
 from scipy.spatial import ConvexHull, HalfspaceIntersection
@@ -55,7 +59,7 @@ def _intersect(hulls, feas_point=None):
   intersected = ConvexHull(HalfspaceIntersection(all_eq, feas_point).intersections)
   return intersected
 
-class PrismIntersection():
+class PrismIntersection(object):
 
   def __init__(self, mass, polytope, contacts, radius=1.5):
     self.mass = mass

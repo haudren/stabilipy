@@ -19,6 +19,8 @@
 # along with StabiliPy.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
+from __future__ import print_function
+from builtins import zip
 import stabilipy as stab
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -31,10 +33,10 @@ from fractions import Fraction
 import shapes
 
 import left_foot_contact as lfcontact
+from stairs_contacts import pos, normals
 
 np.set_printoptions(linewidth=1000)
 
-execfile('stairs_contacts.py')
 
 def main():
   global pos, normals
@@ -82,7 +84,7 @@ def main():
   poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='plain',
                plot_init=False, plot_final=True, plot_step=False,
                plot_direction=False, plot_error=False)
-  print "Print area : ", poly.volume_convex(poly.inner)
+  print("Print area : ", poly.volume_convex(poly.inner))
 
   poly.contacts = contacts + left_foot_contacts
   poly.torque_constraints = []
@@ -95,7 +97,7 @@ def main():
   poly.compute(stab.Mode.best, maxIter=50, epsilon=1e-2, solver='cdd',
                plot_init=False, plot_final=True, plot_step=False,
                plot_direction=False, plot_error=False)
-  print "Print area : ", poly.volume_convex(poly.inner)
+  print("Print area : ", poly.volume_convex(poly.inner))
 
   #p0 = poly.polygon()
   #interp = shapes.PolygonInterpolator(p0, p1)
