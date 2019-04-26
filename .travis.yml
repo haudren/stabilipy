@@ -1,12 +1,11 @@
 language: python
 python:
   - "2.7"
-  - "3.4"
   - "3.6"
 
 install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y liblapack-dev libatlas-dev libblas-dev libgmp-dev libppl-dev
+  - sudo apt-get install -y liblapack-dev libatlas-dev libblas-dev libgmp-dev libppl-dev libsuitesparse-dev
   - pip install cython
   - pip install -r requirements.txt
 
